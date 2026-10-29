@@ -26,10 +26,29 @@ test('rejects an unknown event type', async () => {
     course_id: 'course-123',
     content: { subject: 'Hi', message: 'Hello' },
   })
-  expect(res.status).toBe(422)
+  expect(res.status).toBe(400)
 })
 
 test('rejects a body missing content', async () => {
   const res = await postEvent({ event_type: 'quiz', course_id: 'course-123' })
-  expect(res.status).toBe(422)
+  expect(res.status).toBe(400)
+})
+
+test('rejects a subject longer than 50 characters', async() => {
+  const res = await postEvent({
+    event_type: 'quiz',
+    course_id: 'course-123',
+    content: { subject: 'x'.repeat(51), message: 'Hello'},
+  })
+  expect(res.status).toBe(400)
+})
+
+test('rejects a grade event without user_ids', async () => {
+  const res = await postEvent({
+    event_type: 'grade',
+    course_id: 'course-123',
+    content: {subject: 'A2 graded', message: 'your grade is posted.'},
+  })
+  expect(res.status).toBe(400)
+  expect(await res.json()).toEqual({error: 'user_ids is required for grade events'})
 })
