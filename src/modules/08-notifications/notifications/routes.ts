@@ -33,6 +33,17 @@ export const notificationRoutes = new Elysia()
       }),
     },
   )
+  .post('api/notifications/subscribe', 
+    ({body, set}) => {
+      // TODO
+    },
+    {
+      body: t.Object({
+        course_id: t.String(),
+        event_type: t.UnionEnum(EVENT_TYPES),
+      })
+    }
+  )
 
 
 
