@@ -3,6 +3,7 @@ import { escapeHtml } from '../../../core/pages'
 import { auth } from '../auth'
 import { page } from '../views'
 import { EVENT_TYPES } from './eventTypes'
+import { checkEventRules } from './eventRules'
 
 export const notificationRoutes = new Elysia()
   .use(auth)
@@ -16,8 +17,19 @@ export const notificationRoutes = new Elysia()
   .get('/preferences', () =>
     page('Notification settings', '<h1>Notification settings</h1><p>Coming soon.</p>'),
   )
+  .onError(({code, set}) => {
+    if (code === 'VALIDATION') {
+      set.status = 400
+      return { error: 'Request body does not match the expected format'}
+    }
+  })
   .post( 'api/notifications/events',
     ({body, set}) => {
+      const problem = checkEventRules(body)
+      if (problem){
+        set.status = 400
+        return {error: problem}
+      }
       console.log('Event received:', body.event_type, body.course_id)
       set.status = 204
     },
@@ -27,8 +39,8 @@ export const notificationRoutes = new Elysia()
         course_id: t.String(),
         user_ids: t.Optional(t.Array(t.String())),
         content: t.Object({
-          subject: t.String(),
-          message: t.String(),
+          subject: t.String({minLength: 1, maxLength: 50}),
+          message: t.String({minLength: 1, maxLength: 280}),
         }),
       }),
     },
