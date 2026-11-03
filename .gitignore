@@ -12,4 +12,3 @@ Thumbs.db
 
 # Temporary folders created while the tests run
 tests/.tmp-*/
-/.vs
