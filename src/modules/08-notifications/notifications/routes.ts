@@ -4,6 +4,7 @@ import { auth } from '../auth'
 import { page } from '../views'
 import { EVENT_TYPES } from './eventTypes'
 import { checkEventRules } from './eventRules'
+import { unmuteCategories } from './subscribe'
 
 export const notificationRoutes = new Elysia()
   .use(auth)
@@ -17,10 +18,10 @@ export const notificationRoutes = new Elysia()
   .get('/preferences', () =>
     page('Notification settings', '<h1>Notification settings</h1><p>Coming soon.</p>'),
   )
-  .onError(({code, set}) => {
+  .onError(({ code, set }) => {
     if (code === 'VALIDATION') {
       set.status = 400
-      return { error: 'Request body does not match the expected format'}
+      return { error: 'Request body does not match the expected format' }
     }
   })
   .post( 'api/notifications/events',
@@ -42,6 +43,19 @@ export const notificationRoutes = new Elysia()
           subject: t.String({minLength: 1, maxLength: 50}),
           message: t.String({minLength: 1, maxLength: 280}),
         }),
+      }),
+    },
+  )
+  .post('api/notifications/subscribe', 
+    ({body, set, user}) => {
+      console.log('Receiving subscribe request to event:', body.event_type)
+      unmuteCategories(user.user_id, body)
+      set.status = 204
+    },
+    {
+      body: t.Object({
+        course_id: t.String({minLength: 1}),
+        event_type: t.Array(t.UnionEnum(EVENT_TYPES), { minItems: 1 }),
       }),
     },
   )
