@@ -4,12 +4,9 @@ import { auth } from '../auth'
 import { page } from '../views'
 import { EVENT_TYPES } from './eventTypes'
 import { checkEventRules } from './eventRules'
+import { unmuteCategories } from './subscribe'
 
 export const notificationRoutes = new Elysia()
-  .onError(({error, code}) => {
-    if (code === 'VALIDATION')
-        return error.detail(error.message)
-  })
   .use(auth)
   .get('/inbox', ({ user }) =>
     page(
@@ -21,10 +18,10 @@ export const notificationRoutes = new Elysia()
   .get('/preferences', () =>
     page('Notification settings', '<h1>Notification settings</h1><p>Coming soon.</p>'),
   )
-  .onError(({code, set}) => {
+  .onError(({ code, set }) => {
     if (code === 'VALIDATION') {
       set.status = 400
-      return { error: 'Request body does not match the expected format'}
+      return { error: 'Request body does not match the expected format' }
     }
   })
   .post( 'api/notifications/events',
@@ -50,15 +47,15 @@ export const notificationRoutes = new Elysia()
     },
   )
   .post('api/notifications/subscribe', 
-    ({body, set}) => {
+    ({body, set, user}) => {
       console.log('Receiving subscribe request to event:', body.event_type)
-      // TODO: Body validated against DP-01 (course_id string; event_type array of allowed values, at least one)
+      unmuteCategories(user.user_id, body)
       set.status = 204
     },
     {
       body: t.Object({
-        course_id: t.String(),
-        event_type: t.UnionEnum(EVENT_TYPES),
+        course_id: t.String({minLength: 1}),
+        event_type: t.Array(t.UnionEnum(EVENT_TYPES), { minItems: 1 }),
       }),
     },
   )
