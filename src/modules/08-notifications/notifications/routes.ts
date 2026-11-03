@@ -5,6 +5,7 @@ import { page } from '../views'
 import { EVENT_TYPES } from './eventTypes'
 import { checkEventRules } from './eventRules'
 import { unmuteCategories } from './subscribe'
+import { muteCategories } from './unsubscribe'
 
 export const notificationRoutes = new Elysia()
   .use(auth)
@@ -59,6 +60,16 @@ export const notificationRoutes = new Elysia()
       }),
     },
   )
-
-
-
+  .patch('api/notifications/unsubscribe', 
+    ({body, set, user}) => {
+      console.log('Receiving unsubscribe request to event:', body.event_type)
+      muteCategories(user.user_id, body)
+      set.status = 204
+    },
+    {
+      body: t.Object({
+        course_id: t.String({minLength: 1}),
+        event_type: t.Array(t.UnionEnum(EVENT_TYPES), { minItems: 1 }),
+      }),
+    },
+  )
