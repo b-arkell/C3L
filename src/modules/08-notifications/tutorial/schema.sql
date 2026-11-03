@@ -1,0 +1,6 @@
+
+CREATE TABLE IF NOT EXISTS tutorial_notifications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    message TEXT NOT NULL,
+    is_read INTEGER NOT NULL DEFAULT 0
+);
