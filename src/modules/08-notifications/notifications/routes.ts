@@ -5,6 +5,10 @@ import { page } from '../views'
 import { EVENT_TYPES } from './eventTypes'
 
 export const notificationRoutes = new Elysia()
+  .onError(({error, code}) => {
+    if (code === 'VALIDATION')
+        return error.detail(error.message)
+  })
   .use(auth)
   .get('/inbox', ({ user }) =>
     page(
@@ -35,14 +39,16 @@ export const notificationRoutes = new Elysia()
   )
   .post('api/notifications/subscribe', 
     ({body, set}) => {
-      // TODO
+      console.log('Receiving subscribe request to event:', body.event_type)
+      // TODO: Body validated against DP-01 (course_id string; event_type array of allowed values, at least one)
+      set.status = 204
     },
     {
       body: t.Object({
         course_id: t.String(),
         event_type: t.UnionEnum(EVENT_TYPES),
-      })
-    }
+      }),
+    },
   )
 
 
