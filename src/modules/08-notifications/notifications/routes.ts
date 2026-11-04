@@ -25,6 +25,15 @@ export const notificationRoutes = new Elysia()
       return { error: 'Request body does not match the expected format' }
     }
   })
+  .get('api/courses/:course_id/announcements', ({params, set}) => {
+    if(!courseExists(params.course_id)) {
+      set.status = 404
+      return {
+          error: 'Course "${params.course_id}" does not exist'
+      }
+      return getAnnouncements(params.course_id)
+    }
+  })
   .post( 'api/notifications/events',
     ({body, set}) => {
       const problem = checkEventRules(body)
