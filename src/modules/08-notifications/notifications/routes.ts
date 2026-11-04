@@ -27,9 +27,6 @@ export const notificationRoutes = new Elysia()
       return { error: 'Request body does not match the expected format' }
     }
   })
-  .get('/preferences', () =>
-    page('Notification settings', '<h1>Notification settings</h1><p>Coming soon.</p>'),
-  )
   .onError(({ code, set }) => {
     if (code === 'VALIDATION') {
       set.status = 400
