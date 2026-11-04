@@ -28,13 +28,11 @@ export const notificationRoutes = new Elysia()
     }
   })
   .get('api/courses/:course_id/announcements', ({params, set}) => {
-    if(!courseExists(params.course_id)) {
+    if (!courseExists(params.course_id)) {
       set.status = 404
-      return {
-          error: 'Course "${params.course_id}" does not exist'
-      }
-      return getAnnouncements(params.course_id)
+      return { error: 'Course "${params.course_id}" does not exist' }
     }
+      return getAnnouncements(params.course_id)
   })
   .post( 'api/notifications/events',
     ({body, set}) => {
