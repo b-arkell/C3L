@@ -35,6 +35,9 @@ export function preferencesPage(userId: string): string {
   th { font-weight: 500; font-size: 0.75rem; text-transform: capitalize; padding: 0 18px 10px; }
   td { padding: 8px 18px; text-align: center; }
   td.course { text-align: left; font-size: 0.85rem; padding-left: 0; white-space: nowrap; }
+  #message { display: flex; align-items: center; justify-content: center;
+             min-height: 50vh; font-size: 1.1rem; text-align: center; }
+  #message[hidden] { display: none; }
   input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--gold); cursor: pointer; }
 
   footer { display: flex; align-items: center; justify-content: space-between; padding: 16px 56px 28px; }
@@ -66,6 +69,7 @@ export function preferencesPage(userId: string): string {
     <thead><tr><th></th>${headerCells}</tr></thead>
     <tbody id="rows"><tr><td class="course">Loading...</td></tr></tbody>
   </table>
+  <div id="message" hidden></div>
 </main>
 
 <footer>
@@ -88,18 +92,30 @@ export function preferencesPage(userId: string): string {
 
   // Initial state from FR-08: each course lists the event types that are OFF (muted).
   // Checked box = receiving that type. textContent is used so course IDs can't inject HTML.
+  const message = document.getElementById('message')
+  const table = document.querySelector('table')
+
+  // Hides the table and shows a message in the middle of the page
+  function showMessage(text) {
+    table.hidden = true
+    message.textContent = text
+    message.hidden = false
+    saveButton.disabled = true
+  }
+
   async function loadPreferences() {
-    const res = await fetch(BASE + '/api/users/me/notificationPreferences')
-    if (!res.ok) {
-      rows.innerHTML = ''
-      status.textContent = 'Could not load your settings.'
+    let courses
+    try {
+      const res = await fetch(BASE + '/api/users/me/notificationPreferences')
+      if (!res.ok) throw new Error()
+      courses = await res.json()
+    } catch {
+      showMessage('Could not load your settings. Try again later.')
       return
     }
-    const courses = await res.json()
     rows.innerHTML = ''
     if (courses.length === 0) {
-      status.textContent = 'You are not enrolled in any courses.'
-      saveButton.disabled = true
+      showMessage('You are not enrolled in any courses.')
       return
     }
     for (const course of courses) {
