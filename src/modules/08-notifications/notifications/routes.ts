@@ -6,6 +6,7 @@ import { EVENT_TYPES } from './eventTypes'
 import { checkEventRules } from './eventRules'
 import { unmuteCategories } from './subscribe'
 import { muteCategories } from './unsubscribe'
+import { courseExists, getAnnouncements } from './announcements'
 
 export const notificationRoutes = new Elysia()
   .use(auth)
