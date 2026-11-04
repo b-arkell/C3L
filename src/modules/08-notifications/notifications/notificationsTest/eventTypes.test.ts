@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import {isEventType} from './eventTypes'
+import {isEventType} from '../eventTypes'
 
 
 

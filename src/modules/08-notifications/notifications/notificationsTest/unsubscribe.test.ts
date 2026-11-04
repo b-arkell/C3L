@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
-import { db } from '../db/database'
-import { muteCategories } from './unsubscribe'
+import { db } from '../../db/database'
+import { muteCategories } from '../unsubscribe'
 
 function mutedCategories(userId: string, courseId: string): string[] {
     const rows = db

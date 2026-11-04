@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import mod from '../index'
+import mod from '../../index'
 
 // Sends a POST to the events route, like the curl command did
 const postEvent = (body: unknown) =>

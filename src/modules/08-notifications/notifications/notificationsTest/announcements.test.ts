@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
-import { db } from '../db/database'
-import { getAnnouncements } from './announcements'
+import { db } from '../../db/database'
+import { getAnnouncements } from '../announcements'
 
 // Test helper: put a notification straight into the table
 function addNotification(id: string, eventType: string, courseId: string, createdAt: string) {

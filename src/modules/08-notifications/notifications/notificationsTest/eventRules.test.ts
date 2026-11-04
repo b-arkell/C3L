@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { checkEventRules } from './eventRules'
+import { checkEventRules } from '../eventRules'
 
 const GRADE_ERROR = 'user_ids is required for grade events'
 
