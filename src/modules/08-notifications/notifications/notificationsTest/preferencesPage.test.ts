@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
-import { EVENT_TYPES } from './eventTypes'
-import { preferencesPage } from './preferencesPage'
+import { EVENT_TYPES } from '../eventTypes'
+import { preferencesPage } from '../preferencesPage'
 
 describe('preferencesPage', () => {
     const html = preferencesPage('user-1')

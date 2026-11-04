@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { courseExists } from './courses'
+import { courseExists } from '../courses'
 
 describe('courseExists (Stub until we gain access to module 2s API documents)', () => {
     test('accepts a non-empty course ID', () => {

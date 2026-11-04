@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
-import { db } from '../db/database'
-import { unmuteCategories } from './subscribe'
+import { db } from '../../db/database'
+import { unmuteCategories } from '../subscribe'
 
 // Test helpers: mute a category directly, and read back what's muted
 function mute(userId: string, courseId: string, category: string) {
