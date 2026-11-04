@@ -8,6 +8,7 @@ import { unmuteCategories } from './subscribe'
 import { muteCategories } from './unsubscribe'
 import { getAnnouncements } from './announcements'
 import { courseExists } from './courses'
+import { preferencesPage } from './preferencesPage'
 
 export const notificationRoutes = new Elysia()
   .use(auth)
@@ -18,6 +19,14 @@ export const notificationRoutes = new Elysia()
       <p>Signed in as ${escapeHtml(user.user_id)}. Coming soon.</p>`,
     ),
   )
+  .get('/preferences', ({ user }) => preferencesPage(user.user_id))
+  .get('/assets/logo.png', () => Bun.file(`${import.meta.dir}/../assets/logo.png`))
+  .onError(({ code, set }) => {
+    if (code === 'VALIDATION') {
+      set.status = 400
+      return { error: 'Request body does not match the expected format' }
+    }
+  })
   .get('/preferences', () =>
     page('Notification settings', '<h1>Notification settings</h1><p>Coming soon.</p>'),
   )
