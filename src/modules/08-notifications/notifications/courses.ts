@@ -1,0 +1,6 @@
+
+// Course IDs belong to Module 2 (Course Management), not us (SYS-08).
+// TODO: replace with a call to Module 2's API
+export function courseExists(courseId: string): boolean {
+    return courseId.length > 0
+}
