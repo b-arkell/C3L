@@ -9,6 +9,7 @@ import { muteCategories } from './unsubscribe'
 import { getAnnouncements } from './announcements'
 import { courseExists } from './courses'
 import { preferencesPage } from './preferencesPage'
+import { getPreferences } from './preferences'
 
 export const notificationRoutes = new Elysia()
   .use(auth)

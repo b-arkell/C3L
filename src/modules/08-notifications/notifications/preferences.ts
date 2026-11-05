@@ -6,7 +6,6 @@ interface MutedRow {
     category: EventType
 }
 
-
 // formats the parameterized query
 const findMuted = db.prepare(
     `SELECT course_id, category
