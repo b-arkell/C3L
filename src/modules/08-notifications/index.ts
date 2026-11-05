@@ -14,11 +14,32 @@ export default defineModule({
     .get('/', () =>
       page(
         'Notifications & Messaging',
-        `<h1>Notifications & Messaging</h1>
-        <ul>
-          <li><a href="${base}/inbox">Notifications</a></li>
-          <li><a href="${base}/messages">Messages</a></li>
-        </ul>`,
+        `<style>
+          .btns { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+          .btns a { padding: 8px 14px; border: 1px solid #888; border-radius: 4px;
+                    text-decoration: none; color: inherit; }
+          .btns a:hover { background: #eee; }
+        </style>
+        <h1>Notifications & Messaging</h1>
+
+        <h2>Pages</h2>
+        <div class="btns">
+          <a href="${base}/inbox">Notification inbox</a>
+          <a href="${base}/preferences">Notification preferences</a>
+          <a href="${base}/messages">Messages</a>
+        </div>
+
+        <h2>API (GET, opens JSON)</h2>
+        <div class="btns">
+          <a href="${base}/api/users/me/notificationPreferences">My notification preferences</a>
+          <a href="${base}/api/courses/course-101/announcements">Announcements for course-101</a>
+        </div>
+
+        <h2>API docs (test POST / PATCH here)</h2>
+        <div class="btns">
+          <a href="${base}/docs">Swagger docs</a>
+          <a href="${base}/openapi.yaml">openapi.yaml</a>
+        </div>`,
       ),
     )
     // The API spec file
