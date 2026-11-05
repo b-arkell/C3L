@@ -15,15 +15,16 @@ const findMuted = db.prepare(
 )
 
 // deletes preference rows to signify a user has opted in
-export function getPreferences(userId: string): { course_id: string; event_types: EventType[] }[] {
+export function getPreferences(userId: string, courseIds: string[]): { course_id: string; event_types: EventType[] }[] {
     const rows = findMuted.all(userId) as MutedRow[]
 
     const byCourse = new Map<string, EventType[]>()
+    for (const courseId of courseIds) {
+        byCourse.set(courseId, [])
+    }
 
-    for (const row of rows) {
-        const list = byCourse.get(row.course_id) ?? [] // If it exists 
-        list.push(row.category)
-        byCourse.set(row.course_id, list)
+    for (const row of findMuted.all(userId) as MutedRow[]) {
+        byCourse.get(row.course_id)?.push(row.category)
     }
 
     // Turn the Map into DP-04 items

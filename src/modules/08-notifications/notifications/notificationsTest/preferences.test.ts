@@ -15,20 +15,34 @@ describe('getPreferences', () => {
         mute('user-20', 'course-1', 'quiz')
         mute('user-20', 'course-2', 'content')
 
-        expect(getPreferences('user-20')).toEqual([
+        expect(getPreferences('user-20', ['course-1', 'course-2'])).toEqual([
             { course_id: 'course-1', event_types: ['grade', 'quiz'] },
             { course_id: 'course-2', event_types: ['content'] },
         ])
     })
 
-    test("only returns the requesting user's data", () => {
+    test('a fully subscribed course is still listed', () => {
         mute('user-21', 'course-1', 'grade')
-        mute('user-22', 'course-1', 'quiz')
 
-        expect(getPreferences('user-21')).toEqual([{ course_id: 'course-1', event_types: ['grade'] }])
+        expect(getPreferences('user-21', ['course-1', 'course-2'])).toEqual([
+            { course_id: 'course-1', event_types: ['grade'] },
+            { course_id: 'course-2', event_types: [] },
+        ])
     })
 
-    test('a user with nothing muted gets an empty list', () => {
-        expect(getPreferences('user-23')).toEqual([])
+    test("only returns the requesting user's data", () => {
+        mute('user-22', 'course-1', 'quiz')
+
+        expect(getPreferences('user-23', ['course-1'])).toEqual([{ course_id: 'course-1', event_types: [] }])
+    })
+
+    test('ignores mutes for courses the user is not in', () => {
+        mute('user-24', 'old-course', 'grade')
+
+        expect(getPreferences('user-24', ['course-1'])).toEqual([{ course_id: 'course-1', event_types: [] }])
+    })
+
+    test('a user with no courses gets an empty list', () => {
+        expect(getPreferences('user-25', [])).toEqual([])
     })
 })
