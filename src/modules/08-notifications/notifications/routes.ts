@@ -7,7 +7,7 @@ import { checkEventRules } from './eventRules'
 import { unmuteCategories } from './subscribe'
 import { muteCategories } from './unsubscribe'
 import { getAnnouncements } from './announcements'
-import { courseExists } from './courses'
+import { courseExists, enrolledCourses } from './courses'
 import { preferencesPage } from './preferencesPage'
 import { getPreferences } from './preferences'
 
@@ -84,5 +84,5 @@ export const notificationRoutes = new Elysia()
     },
   )
   .get('api/users/me/notificationPreferences', ({ user }) => {
-      return getPreferences(user.user_id)
+      return getPreferences(user.user_id, enrolledCourses(user.user_id))
   })
