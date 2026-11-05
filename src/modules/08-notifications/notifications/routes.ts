@@ -9,6 +9,7 @@ import { muteCategories } from './unsubscribe'
 import { getAnnouncements } from './announcements'
 import { courseExists } from './courses'
 import { preferencesPage } from './preferencesPage'
+import { getPreferences } from './preferences'
 
 export const notificationRoutes = new Elysia()
   .use(auth)
@@ -21,12 +22,6 @@ export const notificationRoutes = new Elysia()
   )
   .get('/preferences', ({ user }) => preferencesPage(user.user_id))
   .get('/assets/logo.png', () => Bun.file(`${import.meta.dir}/../assets/logo.png`))
-  .onError(({ code, set }) => {
-    if (code === 'VALIDATION') {
-      set.status = 400
-      return { error: 'Request body does not match the expected format' }
-    }
-  })
   .onError(({ code, set }) => {
     if (code === 'VALIDATION') {
       set.status = 400
@@ -64,7 +59,7 @@ export const notificationRoutes = new Elysia()
   )
   .post('api/notifications/subscribe', 
     ({body, set, user}) => {
-      console.log('Receiving subscribe request to event:', body.event_type)
+        console.log('Received subscribe request to event:', body.event_type)
       unmuteCategories(user.user_id, body)
       set.status = 204
     },
@@ -77,7 +72,7 @@ export const notificationRoutes = new Elysia()
   )
   .patch('api/notifications/unsubscribe', 
     ({body, set, user}) => {
-      console.log('Receiving unsubscribe request to event:', body.event_type)
+      console.log('Received unsubscribe request to event:', body.event_type)
       muteCategories(user.user_id, body)
       set.status = 204
     },
@@ -88,3 +83,6 @@ export const notificationRoutes = new Elysia()
       }),
     },
   )
+  .get('api/users/me/notificationPreferences', ({ user }) => {
+      return getPreferences(user.user_id)
+  })
