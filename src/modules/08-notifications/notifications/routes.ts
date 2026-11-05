@@ -27,12 +27,6 @@ export const notificationRoutes = new Elysia()
       return { error: 'Request body does not match the expected format' }
     }
   })
-  .onError(({ code, set }) => {
-    if (code === 'VALIDATION') {
-      set.status = 400
-      return { error: 'Request body does not match the expected format' }
-    }
-  })
   .get('api/courses/:course_id/announcements', ({params, set}) => {
     if (!courseExists(params.course_id)) {
       set.status = 404
@@ -64,7 +58,7 @@ export const notificationRoutes = new Elysia()
   )
   .post('api/notifications/subscribe', 
     ({body, set, user}) => {
-      console.log('Receiving subscribe request to event:', body.event_type)
+        console.log('Received subscribe request to event:', body.event_type)
       unmuteCategories(user.user_id, body)
       set.status = 204
     },
@@ -77,7 +71,7 @@ export const notificationRoutes = new Elysia()
   )
   .patch('api/notifications/unsubscribe', 
     ({body, set, user}) => {
-      console.log('Receiving unsubscribe request to event:', body.event_type)
+      console.log('Received unsubscribe request to event:', body.event_type)
       muteCategories(user.user_id, body)
       set.status = 204
     },
@@ -88,3 +82,6 @@ export const notificationRoutes = new Elysia()
       }),
     },
   )
+  .get('api/users/me/notificationPreferences', ({ user }) => {
+      return getPreferences(user.user_id)
+  })
