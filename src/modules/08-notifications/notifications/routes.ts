@@ -11,6 +11,7 @@ import { courseExists, enrolledCourses, courseMembers } from './courses'
 import { preferencesPage } from './preferencesPage'
 import { getPreferences } from './preferences'
 import { storeNotification } from './storeNotification'
+import { removeMutedUsers } from './muteFilter'
 
 export const notificationRoutes = new Elysia()
   .use(auth)
@@ -43,7 +44,11 @@ export const notificationRoutes = new Elysia()
         set.status = 400
         return {error: problem}
       }
-      const recipients = body.user_ids ?? courseMembers(body.course_id) // get the users in the course
+      const recipients = removeMutedUsers( // remove any muted users from the list
+        body.user_ids ?? courseMembers(body.course_id), // get the users in the course
+        body.course_id,
+        body.event_type,
+      ) 
       storeNotification(body, recipients) // store the notification in db and the recipients
       set.status = 204
     },
