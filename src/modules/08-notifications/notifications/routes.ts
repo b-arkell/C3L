@@ -7,9 +7,10 @@ import { checkEventRules } from './eventRules'
 import { unmuteCategories } from './subscribe'
 import { muteCategories } from './unsubscribe'
 import { getAnnouncements } from './announcements'
-import { courseExists, enrolledCourses } from './courses'
+import { courseExists, enrolledCourses, courseMembers } from './courses'
 import { preferencesPage } from './preferencesPage'
 import { getPreferences } from './preferences'
+import { storeNotification } from './storeNotification'
 
 export const notificationRoutes = new Elysia()
   .use(auth)
@@ -31,7 +32,7 @@ export const notificationRoutes = new Elysia()
   .get('api/courses/:course_id/announcements', ({params, set}) => {
     if (!courseExists(params.course_id)) {
       set.status = 404
-      return { error: 'Course "${params.course_id}" does not exist' }
+      return { error: `Course "${params.course_id}" does not exist` }
     }
       return getAnnouncements(params.course_id)
   })
@@ -42,7 +43,8 @@ export const notificationRoutes = new Elysia()
         set.status = 400
         return {error: problem}
       }
-      console.log('Event received:', body.event_type, body.course_id)
+      const recipients = body.user_ids ?? courseMembers(body.course_id) // get the users in the course
+      storeNotification(body, recipients) // store the notification in db and the recipients
       set.status = 204
     },
     {

@@ -10,3 +10,7 @@ export function courseExists(courseId: string): boolean {
 export function enrolledCourses(_userId: string): string[] {
     return ['course-101', 'course-202', 'course-303']
 }
+
+export function courseMembers(_courseId: string): string[]{
+    return ['user_test', 'user_2', "user_3"]
+}
