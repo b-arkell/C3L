@@ -67,4 +67,75 @@ describe('POST /api/directMessage/:conversationId', () => {
         expect(response.status).toBe(403)
         expect(savedMessages).toHaveLength(0)
     })
+
+    test('FR-14: User attempts to send a message to a conversation that doesn\'t exist', async () => {
+        // Arrange
+        const conversationId = 'test-conversation-3'
+        const userId = 'user_3'
+        //addTestConversation(conversationId, userId) // a conversation needs to exist or the test fails. I think from some SQL return of null maybe
+        //const wrongConvoId = 'test-wrongConvo-1'
+        // Act
+        const response = await messageRoutes.handle(
+            new Request(`http://localhost:3000/api/directMessage/${conversationId}?user_id=${userId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: 'Hello form test 3' }),
+            }) 
+        )
+        const savedMessages = db.prepare(
+            'SELECT * FROM messages WHERE conversation_id = ?'
+        ).all(conversationId)
+
+        // Assert
+        expect(response.status).toBe(404)
+        expect(savedMessages).toHaveLength(0)
+    })
+
+    test('FR-14: User sends an empty message body', async () => {
+        // Arrange
+        const conversationId = 'test-conversation-4'
+        const userId = 'user_3'
+        addTestConversation(conversationId, userId)
+
+        // Act
+        const response = await messageRoutes.handle(
+            new Request(`http://localhost:3000/api/directMessage/${conversationId}?user_id=${userId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: '' }),
+            })
+        )
+        //console.log(response.status)
+        const savedMessages = db.prepare(
+            'SELECT * FROM messages WHERE conversation_id = ?'
+        ).all(conversationId)
+
+        // Assert
+        expect(response.status).toBe(422)
+        expect(savedMessages).toHaveLength(0)
+    })
+
+    test('FR-14: User sends a message body greater than 280', async () => {
+        // Arrange
+        const conversationId = 'test-conversation-5'
+        const userId = 'user_3'
+        addTestConversation(conversationId, userId)
+        const longMessage = 'a'.repeat(281)
+
+        // Act
+        const response = await messageRoutes.handle(
+            new Request(`http://localhost:3000/api/directMessage/${conversationId}?user_id=${userId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: `${longMessage}` }),
+            })
+        )
+        const savedMessages = db.prepare(
+            'SELECT * FROM messages WHERE conversation_id = ?'
+        ).all(conversationId)
+
+        // Assert
+        expect(response.status).toBe(422)
+        expect(savedMessages).toHaveLength(0)
+    })
 })
