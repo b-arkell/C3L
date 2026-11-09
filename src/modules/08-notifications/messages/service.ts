@@ -21,5 +21,11 @@ export function sendMessage(conversationId: string, userId: string, message: str
     if (savedMessage === null) 
         return {status: 'insertion_failed'}
     
+    console.info({
+        timestamp: new Date().toISOString(),
+        event_type: 'message_send',
+        conversation_id: conversationId,
+        user_id: userId
+    })
     return {status: 'success', message: savedMessage}
 }

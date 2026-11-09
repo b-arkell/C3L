@@ -13,14 +13,32 @@ export const messageRoutes = new Elysia()
     
     const savedMessage = sendMessage(params.conversationId, user.user_id, body.message)
     if (savedMessage.status === 'conversation_not_found') {
+      console.warn({
+        timestamp: new Date().toISOString(),
+        route: '/api/directMessage/:conversationId',
+        status_code: 404,
+        reason: 'conversation_not_found'
+      })
       set.status = 404
       return { error: 'Conversation not found' }
     }
     if (savedMessage.status === 'not_a_member') {
+      console.warn({
+        timestamp: new Date().toISOString(),
+        route: '/api/directMessage/:conversationId',
+        status_code: 403,
+        reason: 'not_a_member'
+      })
       set.status = 403
       return { error: 'User is not an active member of this conversation' }
     }
     if (savedMessage.status === 'insertion_failed') {
+      console.warn({
+        timestamp: new Date().toISOString(),
+        route: '/api/directMessage/:conversationId',
+        status_code: 500,
+        reason: 'insertion_failed'
+      })
       set.status = 500
       return { error: 'Insertion of message into database failed'}
     }
@@ -29,7 +47,7 @@ export const messageRoutes = new Elysia()
     return savedMessage.message
 
   }, {
-    body: t.Object({
+    body: t.Object({  // to log this error, we have to add an Elysia error hook for this and other schema validation failures
       message: t.String({ minLength: 1, maxLength: 280 }) // checks that the message body is not empty otherwise status is 422 - unprocessable entity
     })
   })
