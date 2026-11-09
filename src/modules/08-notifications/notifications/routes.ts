@@ -13,6 +13,7 @@ import { getPreferences } from './preferences'
 import { storeNotification } from './storeNotification'
 import { removeMutedUsers } from './muteFilter'
 import { getNotifications } from './getNotifications'
+import { markNotificationRead } from './markNotificationRead'
 
 export const notificationRoutes = new Elysia()
   .use(auth)
@@ -105,6 +106,27 @@ export const notificationRoutes = new Elysia()
             maximum: 100,
            }),
         )
+      }),
+    },
+  )
+  .patch('api/notifications/:notificationId',
+    ({ user, params, set }) => {
+      const result = markNotificationRead(user.user_id, params.notificationId)
+
+      if (result === 'not-found') {
+        set.status = 404
+        return {error: 'Notification not found'}
+      }
+      if (result === 'forbidden'){
+        set.status = 403
+        return {error: 'Notification does not belong to the current user'}
+      }
+      
+      set.status = 204
+    },
+    {
+      body: t.Object({
+        read: t.Literal(true)
       }),
     },
   )
