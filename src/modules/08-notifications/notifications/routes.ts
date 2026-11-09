@@ -12,6 +12,7 @@ import { preferencesPage } from './preferencesPage'
 import { getPreferences } from './preferences'
 import { storeNotification } from './storeNotification'
 import { removeMutedUsers } from './muteFilter'
+import { getNotifications } from './getNotifications'
 
 export const notificationRoutes = new Elysia()
   .use(auth)
@@ -93,3 +94,17 @@ export const notificationRoutes = new Elysia()
   .get('api/users/me/notificationPreferences', ({ user }) => {
       return getPreferences(user.user_id, enrolledCourses(user.user_id))
   })
+  .get('api/users/me/notifications',
+    ({ user, query }) =>
+      getNotifications(user.user_id, query.limit),
+    {
+      query: t.Object({
+        limit: t.Optional(
+          t.Number({ 
+            minimum: 1,
+            maximum: 100,
+           }),
+        )
+      }),
+    },
+  )
