@@ -138,4 +138,32 @@ describe('POST /api/directMessage/:conversationId', () => {
         expect(response.status).toBe(422)
         expect(savedMessages).toHaveLength(0)
     })
+
+    test('FR-14: Verifying the JSON response body for a successful message', async () => {
+        // Arrange
+        const conversationId = 'test-conversation-6'
+        const userId = 'user_3'
+        addTestConversation(conversationId, userId)
+        const message = 'This is a successful message'
+
+        // Act
+        const response = await messageRoutes.handle(
+            new Request(`http://localhost:3000/api/directMessage/${conversationId}?user_id=${userId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: message }),
+            })
+        )
+        const responseBody = await response.json()
+
+        // Assert
+        expect(response.status).toBe(201)
+        expect(responseBody).toMatchObject({
+            conversation_id: conversationId,
+            sender_id: userId,
+            body: message
+        })
+        expect(responseBody).toHaveProperty('id')
+        expect(responseBody).toHaveProperty('created_at')
+    })
 })

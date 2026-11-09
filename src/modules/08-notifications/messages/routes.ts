@@ -1,8 +1,7 @@
 import { Elysia, t } from 'elysia'
 import { auth } from '../auth'
 import { page } from '../views'
-import { findConversationById, findMembership, insertMessage } from './repository'
-import { conversationExists, isActiveMember } from './validation'
+import { sendMessage } from './service'
 
 
 export const messageRoutes = new Elysia()
@@ -12,26 +11,22 @@ export const messageRoutes = new Elysia()
 
   .post('/api/directMessage/:conversationId', ({ params, body, user, set }) => {
     
-
-    if (conversationExists(params.conversationId) === false) {
+    const savedMessage = sendMessage(params.conversationId, user.user_id, body.message)
+    if (savedMessage.status === 'conversation_not_found') {
       set.status = 404
       return { error: 'Conversation not found' }
     }
-
-    if (isActiveMember(params.conversationId, user.user_id) === false){
+    if (savedMessage.status === 'not_a_member') {
       set.status = 403
       return { error: 'User is not an active member of this conversation' }
     }
+    if (savedMessage.status === 'insertion_failed') {
+      set.status = 500
+      return { error: 'Insertion of message into database failed'}
+    }
 
-    // create message 
-    const messageId = crypto.randomUUID()
-    const createdAt = new Date().toISOString()
-    
-    const savedMessage = insertMessage(messageId, params.conversationId, user.user_id, body.message, createdAt)
-
-    // TODO: check that the message returned properly (not an sql exception or null) before setting status and returning
     set.status = 201
-    return savedMessage
+    return savedMessage.message
 
   }, {
     body: t.Object({
