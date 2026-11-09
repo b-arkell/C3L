@@ -1,7 +1,7 @@
 import { Elysia, t } from 'elysia'
 import { auth } from '../auth'
 import { page } from '../views'
-import { db } from '../db/database'
+import { findConversationById, findMembership, insertMessage } from './repository'
 
 
 export const messageRoutes = new Elysia()
@@ -11,43 +11,32 @@ export const messageRoutes = new Elysia()
 
   .post('/api/directMessage/:conversationId', ({ params, body, user, set }) => {
     
-    const stmt = db.prepare(
-    'SELECT * FROM conversations WHERE id = ?'
-    )
-    const conversation = stmt.get(params.conversationId)
 
-    if (conversation === null) {
+    if (findConversationById(params.conversationId) === null) {
       set.status = 404
       return { error: 'Conversation not found' }
     }
 
-    const selectUsersStmt = db.prepare(
-      'SELECT user_id FROM conversation_members WHERE conversation_id = ? AND user_id = ? AND left_at IS NULL'
-    )
-    const membership = selectUsersStmt.get(params.conversationId, user.user_id)
-
-    if (membership === null){
+    if (findMembership(params.conversationId, user.user_id) === null){
       set.status = 403
       return { error: 'User is not an active member of this conversation' }
     }
 
+    // create message 
     const messageId = crypto.randomUUID()
     const createdAt = new Date().toISOString()
-    const insertMessage = db.prepare(
-      'INSERT INTO messages (id, conversation_id, sender_id, body, created_at) VALUES (?, ?, ?, ?, ?)'
-    )
-    insertMessage.run(messageId, params.conversationId, user.user_id, body.message, createdAt)
-    set.status = 201
+    
+    const savedMessage = insertMessage(messageId, params.conversationId, user.user_id, body.message, createdAt)
 
-    return {
-      id: messageId,
-      conversationId: params.conversationId,
-      senderId: user.user_id,
-      body: body.message,
-      created_at: createdAt,
-    }
+    // TODO: check that the message returned properly (not an sql exception or null) before setting status and returning
+    set.status = 201
+    return savedMessage
+
   }, {
     body: t.Object({
-      message: t.String({ minLength: 1, maxLength: 280 })
+      message: t.String({ minLength: 1, maxLength: 280 }) // checks that the message body is not empty otherwise status is 422 - unprocessable entity
     })
   })
+
+  // ^^^^ (future merge confict message) FR-14 .post('/api/directMessage/:conversationId' is above this line
+  // The next thing goes below this line
