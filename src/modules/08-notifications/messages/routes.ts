@@ -2,6 +2,7 @@ import { Elysia, t } from 'elysia'
 import { auth } from '../auth'
 import { page } from '../views'
 import { findConversationById, findMembership, insertMessage } from './repository'
+import { conversationExists, isActiveMember } from './validation'
 
 
 export const messageRoutes = new Elysia()
@@ -12,12 +13,12 @@ export const messageRoutes = new Elysia()
   .post('/api/directMessage/:conversationId', ({ params, body, user, set }) => {
     
 
-    if (findConversationById(params.conversationId) === null) {
+    if (conversationExists(params.conversationId) === false) {
       set.status = 404
       return { error: 'Conversation not found' }
     }
 
-    if (findMembership(params.conversationId, user.user_id) === null){
+    if (isActiveMember(params.conversationId, user.user_id) === false){
       set.status = 403
       return { error: 'User is not an active member of this conversation' }
     }
