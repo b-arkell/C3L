@@ -1,0 +1,445 @@
+
+openapi: 3.0.3
+
+info:
+  title: Module 7 - Discussion Forum System
+  version: 1.0.0
+  description: |
+    REST API documentation for the C3L Discussion Forum System.
+
+    Features:
+    - Retrieve and create discussion boards.
+    - Retrieve and create discussion topics.
+    - Retrieve and create replies.
+    - Support threaded replies using ParentReplyId.
+    - Edit and delete replies.
+    
+    All endpoints are served through the Module 7 C3L API proxy.
+
+servers:
+  - url: /07-forum
+
+tags:
+  - name: Discussion Boards
+    description: Retrieve and create discussion boards.
+  - name: Topics
+    description: Retrieve and create topics within discussion boards.
+  - name: Replies
+    description: Retrieve, create, edit, and delete replies, including threaded replies.
+
+paths:
+
+  # ===================== DISCUSSION BOARDS =====================
+
+  /api/discussionboards:
+    get:
+      tags:
+        - Discussion Boards
+      summary: Get all discussion boards
+      description: Retrieves all discussion boards.
+      responses:
+        '200':
+          description: Successfully retrieved discussion boards.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DiscussionBoard'
+
+    post:
+      tags:
+        - Discussion Boards
+      summary: Create a discussion board
+      description: Creates a new discussion board.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDiscussionBoard'
+      responses:
+        '201':
+          description: Discussion board created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DiscussionBoard'
+        '400':
+          description: Invalid discussion board data.
+
+  /api/discussionboards/{boardId}:
+    get:
+      tags:
+        - Discussion Boards
+      summary: Get a discussion board by ID
+      parameters:
+        - name: boardId
+          in: path
+          required: true
+          description: ID of the discussion board.
+          schema:
+            type: integer
+            example: 1
+      responses:
+        '200':
+          description: Discussion board found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DiscussionBoard'
+        '404':
+          description: Discussion board not found.
+
+  # ===================== TOPICS =====================
+
+  /api/discussionboards/{boardId}/topics:
+    get:
+      tags:
+        - Topics
+      summary: Get all topics in a discussion board
+      parameters:
+        - name: boardId
+          in: path
+          required: true
+          description: ID of the discussion board.
+          schema:
+            type: integer
+            example: 1
+      responses:
+        '200':
+          description: Topics retrieved successfully.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Topic'
+        '404':
+          description: Discussion board not found.
+
+    post:
+      tags:
+        - Topics
+      summary: Create a topic in a discussion board
+      description: Creates a new topic under the specified discussion board. BoardId and CreatedDate are assigned by the server.
+      parameters:
+        - name: boardId
+          in: path
+          required: true
+          description: ID of the discussion board.
+          schema:
+            type: integer
+            example: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTopic'
+      responses:
+        '201':
+          description: Topic created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Topic'
+        '400':
+          description: Invalid topic data.
+        '404':
+          description: Discussion board not found.
+
+  /api/discussionboards/topics/{topicId}:
+    get:
+      tags:
+        - Topics
+      summary: Get a topic by ID
+      parameters:
+        - name: topicId
+          in: path
+          required: true
+          description: ID of the topic.
+          schema:
+            type: integer
+            example: 1
+      responses:
+        '200':
+          description: Topic found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Topic'
+        '404':
+          description: Topic not found.
+
+  # ===================== REPLIES =====================
+
+  /api/discussionboards/topics/{topicId}/replies:
+    get:
+      tags:
+        - Replies
+      summary: Get all replies in a topic
+      description: Retrieves replies in chronological order. Includes parent reply IDs for threaded discussions.
+      parameters:
+        - name: topicId
+          in: path
+          required: true
+          description: ID of the topic.
+          schema:
+            type: integer
+            example: 1
+      responses:
+        '200':
+          description: Replies retrieved successfully.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Reply'
+        '404':
+          description: Topic not found.
+
+    post:
+      tags:
+        - Replies
+      summary: Create a reply
+      description: |
+        Creates a reply in a topic.
+
+        To create a normal reply, set ParentReplyId to null.
+        To create a threaded reply, provide the ID of an existing
+        parent reply belonging to the same topic.
+
+        Reply content cannot be empty or exceed 1000 characters.
+      parameters:
+        - name: topicId
+          in: path
+          required: true
+          description: ID of the topic.
+          schema:
+            type: integer
+            example: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateReply'
+            examples:
+              normalReply:
+                summary: Normal reply
+                value:
+                  content: I agree with this discussion.
+                  parentReplyId: null
+              threadedReply:
+                summary: Reply to another reply
+                value:
+                  content: I agree with your point.
+                  parentReplyId: 1002
+      responses:
+        '201':
+          description: Reply created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Reply'
+        '400':
+          description: |
+            Invalid reply, empty content, content exceeding 1000 characters,
+            or parent reply not found in this topic.
+        '404':
+          description: Topic not found.
+
+  /api/discussionboards/replies/{id}:
+    get:
+      tags:
+        - Replies
+      summary: Get a reply by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID of the reply.
+          schema:
+            type: integer
+            example: 1002
+      responses:
+        '200':
+          description: Reply found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Reply'
+        '404':
+          description: Reply not found.
+
+    put:
+      tags:
+        - Replies
+      summary: Edit a reply
+      description: Updates the content of an existing reply.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID of the reply to edit.
+          schema:
+            type: integer
+            example: 1002
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EditReply'
+      responses:
+        '200':
+          description: Reply updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Reply'
+        '400':
+          description: Empty reply or content exceeds 1000 characters.
+        '404':
+          description: Reply not found.
+
+    delete:
+      tags:
+        - Replies
+      summary: Delete a reply
+      description: |
+        Deletes the selected reply and all its child replies
+        in the same topic.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID of the reply to delete.
+          schema:
+            type: integer
+            example: 1002
+      responses:
+        '204':
+          description: Reply and its child replies deleted successfully.
+        '404':
+          description: Reply not found.
+
+# ===================== DATA SCHEMAS =====================
+
+components:
+  schemas:
+
+    DiscussionBoard:
+      type: object
+      properties:
+        boardId:
+          type: integer
+          example: 1
+        courseId:
+          type: integer
+          example: 1
+        title:
+          type: string
+          example: General Discussion
+        description:
+          type: string
+          example: General discussion board for the course.
+        createdDate:
+          type: string
+          format: date-time
+          example: '2026-10-13T20:53:44.7797978'
+
+    CreateDiscussionBoard:
+      type: object
+      required:
+        - courseId
+        - title
+        - description
+      properties:
+        courseId:
+          type: integer
+          example: 1
+        title:
+          type: string
+          example: General Discussion
+        description:
+          type: string
+          example: General discussion board for the course.
+
+    Topic:
+      type: object
+      description: Topic object returned by the API. Additional properties depend on the Topic model.
+      properties:
+        topicId:
+          type: integer
+          example: 1
+        boardId:
+          type: integer
+          example: 1
+        createdDate:
+          type: string
+          format: date-time
+          example: '2026-10-19T14:30:00Z'
+      additionalProperties: true
+
+    CreateTopic:
+      type: object
+      description: |
+        Topic properties accepted by the Topic model.
+        BoardId and CreatedDate are assigned by the server.
+      additionalProperties: true
+      example:
+        title: Assignment 1 Questions
+        description: Questions about the first assignment.
+
+    Reply:
+      type: object
+      properties:
+        replyId:
+          type: integer
+          example: 1002
+        topicId:
+          type: integer
+          example: 1
+        content:
+          type: string
+          maxLength: 1000
+          example: I agree with this discussion.
+        parentReplyId:
+          type: integer
+          nullable: true
+          description: Null for a normal reply; contains the parent reply ID for a threaded reply.
+          example: null
+        createdDate:
+          type: string
+          format: date-time
+          example: '2026-10-19T15:00:00Z'
+
+    CreateReply:
+      type: object
+      required:
+        - content
+      properties:
+        content:
+          type: string
+          minLength: 1
+          maxLength: 1000
+          example: I agree with this discussion.
+        parentReplyId:
+          type: integer
+          nullable: true
+          description: Optional parent reply ID for threaded replies.
+          example: null
+
+    EditReply:
+      type: object
+      required:
+        - content
+      properties:
+        content:
+          type: string
+          minLength: 1
+          maxLength: 1000
+          example: This is my updated reply.
