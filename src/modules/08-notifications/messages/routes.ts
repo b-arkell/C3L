@@ -2,7 +2,6 @@ import { Elysia, t } from 'elysia'
 import { auth } from '../auth'
 import { page } from '../views'
 import { listConversations, sendMessage } from './service'
-import { set } from 'better-auth'
 
 
 export const messageRoutes = new Elysia()
