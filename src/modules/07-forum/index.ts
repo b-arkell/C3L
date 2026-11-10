@@ -30,8 +30,11 @@ export default defineModule({
             '/',
             () => `
         <h1>Module 7: Discussion Forum System</h1>
-        <p>Welcome to the Discussion Forum.</p>
-        <p><a href="http://localhost:5098/DiscussionBoard">Open Discussion Forum</a></p>
+       <p>
+ <a href="http://localhost:30707/Courses">
+    Course Discussion Boards
+</a>
+</p>
         <p><a href="${base}/hello">Demo page</a></p>
       `,
         )
@@ -39,13 +42,36 @@ export default defineModule({
             '/hello',
             () => `<h1>Hello from Module 7</h1><a href="${base}">Back</a>`,
         )
+       
+.get(
+    '/openapi.yaml',
+    () =>
+        new Response(Bun.file(`${import.meta.dir}/openapi.yaml`), {
+            headers: { 'Content-Type': 'application/yaml' },
+        }),
+)
+.get(
+    '/docs',
+    () => `
+        <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css">
+        <div id="swagger"></div>
+        <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+        <script>
+            SwaggerUIBundle({
+                url: '${base}/openapi.yaml',
+                dom_id: '#swagger'
+            })
+        </script>
+    `,
+)
+
         .all(
-            '/api/*',
-            ({ request }) =>
-                forwardRequest(request, {
-                    target: 'http://localhost:5098',
-                    stripPrefix: '',
-                }),
-            { parse: 'none' },
-        ),
+    '/api/*',
+    ({ request }) =>
+        forwardRequest(request, {
+            target: 'http://localhost:30707',
+            stripPrefix: base,
+        }),
+    { parse: 'none' },
+),
 })

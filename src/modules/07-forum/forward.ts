@@ -3,15 +3,14 @@ export async function forwardRequest(
     request: Request,
     options: { target: string; stripPrefix: string },
 ): Promise<Response> {
-    console.log('PROXY FUNCTION CALLED:', request.url)
     const incomingUrl = new URL(request.url)
-    const prefix = options.stripPrefix
-    const path = incomingUrl.pathname.startsWith(prefix)
-        ? incomingUrl.pathname.slice(prefix.length)
+
+    const path = incomingUrl.pathname.startsWith(options.stripPrefix)
+        ? incomingUrl.pathname.slice(options.stripPrefix.length)
         : incomingUrl.pathname
 
     const targetUrl = new URL(
-        `/api/discussionboards${incomingUrl.search}`,
+        `${path}${incomingUrl.search}`,
         options.target,
     )
 
@@ -27,15 +26,14 @@ export async function forwardRequest(
                 : await request.arrayBuffer(),
         redirect: 'manual',
     })
-    console.log('C# API response status:', response.status)
 
-    const responseBody = await response.arrayBuffer()
+    const responseHeaders = new Headers(response.headers)
+    responseHeaders.delete('transfer-encoding')
+    responseHeaders.delete('content-encoding')
+    responseHeaders.delete('content-length')
 
-    return new Response(responseBody, {
+    return new Response(await response.arrayBuffer(), {
         status: response.status,
-        statusText: response.statusText,
-        headers: response.headers,
+        headers: responseHeaders,
     })
 }
-
-
