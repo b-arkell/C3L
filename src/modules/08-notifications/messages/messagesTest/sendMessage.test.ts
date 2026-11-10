@@ -2,6 +2,8 @@ import { describe, expect, test } from 'bun:test'
 import { db } from '../../db/database'
 import { messageRoutes } from '../routes'
 import { sendMessage } from '../service'
+import { retrieveConversation, Conversation } from '../repository'
+
 
 function addTestConversation(conversationId: string, userId: string) {
     
@@ -285,4 +287,71 @@ describe ('[FR-17] Message storage', () => {
         expect(members).toHaveLength(3)
         expect(messages).toHaveLength(1)
     })
+})
+
+describe ('[FR-16] List conversations', () => {
+    test('FR-16a: testing the database retrieval function', async () => {
+        // Arrange
+        const conversationId1 = 'test-conversation-10'
+        const conversationId2 = 'test-conversation-11'
+        const userId1 = 'user_6'
+        const userId2 = 'user_7'
+        addTestConversation(conversationId1, userId1)
+        addTestConversation(conversationId2, userId1)
+        const message = 'Testing for message records are stored per convo not per member'
+        const now = new Date().toISOString()
+        const insertConversationMembers = db.prepare(
+        'INSERT OR IGNORE INTO conversation_members (conversation_id, user_id, joined_at) VALUES (?, ?, ?)'
+        )
+        insertConversationMembers.run(conversationId1, userId2, now)
+        
+        // Act
+        const conversations1 = retrieveConversation(userId1)
+        const conversations2 = retrieveConversation(userId2)
+
+        // Assert
+        expect(conversations1).toHaveLength(2)
+        expect(conversations2).toHaveLength(1)
+    })
+
+    test('FR-16a: testing the HTTP endpoint', async () => {
+        // Arrange
+        const conversationId1 = 'test-conversation-12'
+        const conversationId2 = 'test-conversation-13'
+        const userId1 = 'user_8'
+        const userId2 = 'user_9'
+        addTestConversation(conversationId1, userId1)
+        addTestConversation(conversationId2, userId1)
+        const now = new Date().toISOString()
+        const insertConversationMembers = db.prepare(
+        'INSERT OR IGNORE INTO conversation_members (conversation_id, user_id, joined_at) VALUES (?, ?, ?)'
+        )
+        insertConversationMembers.run(conversationId1, userId2, now)
+        
+        // Act
+        const response = await messageRoutes.handle(
+            new Request(`http://localhost:3000/api/me/conversations?user_id=${userId1}`, {
+                method: 'GET',
+            })
+        )
+        const response2 = await messageRoutes.handle(
+            new Request(`http://localhost:3000/api/me/conversations?user_id=${userId2}`, {
+                method: 'GET',
+            })
+        )
+        const responseBody = await response.json() as Conversation[]
+        const responseBody2 = await response2.json() as Conversation[]
+
+        // Assert
+        expect(response.status).toBe(200)
+        expect(responseBody).toHaveLength(2)
+        expect(responseBody.map(c => c.id)).toContain(conversationId1)
+        expect(responseBody.map(c => c.id)).toContain(conversationId2)
+        expect(response.status).toBe(200)
+        expect(responseBody2).toHaveLength(1)
+        expect(responseBody2.map(c => c.id)).toContain(conversationId1)
+        expect(responseBody2.map(c => c.id)).not.toContain(conversationId2)
+    })
+
+    //TODO: test for conversation_members.left_at to check that the conversation disappears from their GET results
 })

@@ -1,7 +1,8 @@
 import { Elysia, t } from 'elysia'
 import { auth } from '../auth'
 import { page } from '../views'
-import { sendMessage } from './service'
+import { listConversations, sendMessage } from './service'
+import { set } from 'better-auth'
 
 
 export const messageRoutes = new Elysia()
@@ -54,3 +55,8 @@ export const messageRoutes = new Elysia()
 
   // ^^^^ (future merge confict message) FR-14 .post('/api/directMessage/:conversationId' is above this line
   // The next thing goes below this line
+
+  .get('/api/me/conversations', ({ user }) => {
+    const conversations = listConversations(user.user_id)
+    return conversations
+  })

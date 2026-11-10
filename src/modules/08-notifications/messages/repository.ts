@@ -1,6 +1,14 @@
 // Sam - Functions that touch the database
 import { db } from '../db/database'
 
+export interface Conversation {
+    id: string
+    name: string | null
+    direct_key: string | null
+    created_by: string
+    created_at: string
+}
+
 export interface Message {
     id: string
     conversation_id: string
@@ -43,4 +51,10 @@ export function insertMessage(messageId: string, conversationId: string, userId:
     }
 }
 
-
+// get conversations
+export function retrieveConversation(userId: string): Conversation[] {
+    const getConvoStmt = db.prepare(
+        'SELECT conversations.* FROM conversations INNER JOIN conversation_members ON conversations.id = conversation_members.conversation_id WHERE conversation_members.user_id = ? AND conversation_members.left_at IS NULL'
+    ).all(userId) as Conversation[]
+    return getConvoStmt
+}

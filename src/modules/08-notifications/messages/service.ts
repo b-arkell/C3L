@@ -1,5 +1,5 @@
 // Sam - Service functions for messaging routes
-import { insertMessage, type Message } from "./repository"
+import { Conversation, insertMessage, retrieveConversation, type Message } from "./repository"
 import { conversationExists, isActiveMember } from "./validation";
 
 export type SendMessageResult =
@@ -28,4 +28,8 @@ export function sendMessage(conversationId: string, userId: string, message: str
         user_id: userId
     })
     return {status: 'success', message: savedMessage}
+}
+
+export function listConversations(userId: string): Conversation[] {
+    return retrieveConversation(userId)
 }
