@@ -353,5 +353,39 @@ describe ('[FR-16] List conversations', () => {
         expect(responseBody2.map(c => c.id)).not.toContain(conversationId2)
     })
 
-    //TODO: test for conversation_members.left_at to check that the conversation disappears from their GET results
+    //FR-16
+    //TODO: test for group name after group creation is implemented.
+    //TODO: test for unread flag per conversation from FR-18 (feeds US-05)
 })
+
+// FR-15 Leave conversation via PATCH /api/directMessage/unsubscribe/:conversation_id
+// //TODO: test for conversation_members.left_at to check that the conversation disappears from their GET results
+    // test('test for conversation_members.left_at to check that the conversation disappears from their GET results', async () => {
+    //     // Arrange 
+    //     const conversationId1 = 'test-conversation-14'
+    //     const conversationId2 = 'test-conversation-15'
+    //     const userId1 = 'user_10'
+    //     const userId2 = 'user_11'
+    //     addTestConversation(conversationId1, userId1)
+    //     addTestConversation(conversationId2, userId1)
+    //     const now = new Date().toISOString()
+    //     const insertConversationMembers = db.prepare(
+    //     'INSERT OR IGNORE INTO conversation_members (conversation_id, user_id, joined_at) VALUES (?, ?, ?)'
+    //     )
+    //     insertConversationMembers.run(conversationId1, userId2, now)
+
+    //     // Act
+    //     const response = await messageRoutes.handle(
+    //         new Request(`http://localhost:3000/api/me/conversations?user_id=${userId1}`, {
+    //             method: 'GET',
+    //         })
+    //     )
+
+    //     const response2 = await messageRoutes.handle(
+    //         new Request(`http://localhost:3000/api/me/conversations?user_id=${userId1}`, {
+    //             method: 'GET',
+    //         })
+    //     )
+    //     const responseBody = await response.json() as Conversation[]
+    //     const responseBody2 = await response2.json() as Conversation[]
+    // })
