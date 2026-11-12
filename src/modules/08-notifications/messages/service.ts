@@ -1,5 +1,5 @@
 // Sam - Service functions for messaging routes
-import { Conversation, insertMessage, retrieveConversation, type Message } from "./repository"
+import { Conversation, insertMessage, retrieveAllMessages, retrieveConversation, retrieveLastMessage, type Message } from "./repository"
 import { conversationExists, isActiveMember } from "./validation";
 
 export type SendMessageResult =
@@ -32,4 +32,12 @@ export function sendMessage(conversationId: string, userId: string, message: str
 
 export function listConversations(userId: string): Conversation[] {
     return retrieveConversation(userId)
+}
+
+export function getLastMessage(conversationId: string): Message {
+    return retrieveLastMessage(conversationId)
+}
+
+export function getAllMessagesInConvo(conversationId: string): Message[] {
+    return retrieveAllMessages(conversationId)
 }
