@@ -6,6 +6,7 @@ import { set } from 'better-auth'
 import { conversationExists, isActiveMember } from './validation'
 
 
+
 export const messageRoutes = new Elysia()
   .use(auth)
   .get('/messages', () => page('Messages', '<h1>Messages</h1><p>Coming soon.</p>'))

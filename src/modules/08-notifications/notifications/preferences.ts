@@ -23,7 +23,7 @@ export function getPreferences(userId: string, courseIds: string[]): { course_id
         byCourse.set(courseId, [])
     }
 
-    for (const row of findMuted.all(userId) as MutedRow[]) {
+    for (const row of rows) {
         byCourse.get(row.course_id)?.push(row.category)
     }
 

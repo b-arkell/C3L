@@ -5,6 +5,7 @@ import { sendMessage } from '../service'
 import { retrieveConversation, Conversation, Message } from '../repository'
 
 
+
 function addTestConversation(conversationId: string, userId: string) {
     
     const now = new Date().toISOString()
@@ -269,7 +270,7 @@ describe ('[FR-17] Message storage', () => {
         insertConversationMembers.run(conversationId, userId3, now)
 
         // Act
-        const response = await messageRoutes.handle(
+        await messageRoutes.handle(
             new Request(`http://localhost:3000/api/directMessage/${conversationId}?user_id=${userId1}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -298,7 +299,6 @@ describe ('[FR-16] List conversations', () => {
         const userId2 = 'user_7'
         addTestConversation(conversationId1, userId1)
         addTestConversation(conversationId2, userId1)
-        const message = 'Testing for message records are stored per convo not per member'
         const now = new Date().toISOString()
         const insertConversationMembers = db.prepare(
         'INSERT OR IGNORE INTO conversation_members (conversation_id, user_id, joined_at) VALUES (?, ?, ?)'
