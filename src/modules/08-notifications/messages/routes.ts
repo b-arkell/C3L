@@ -1,7 +1,10 @@
 import { Elysia, t } from 'elysia'
 import { auth } from '../auth'
 import { page } from '../views'
-import { listConversations, sendMessage } from './service'
+import { getAllMessagesInConvo, listConversations, sendMessage } from './service'
+import { set } from 'better-auth'
+import { conversationExists, isActiveMember } from './validation'
+
 
 
 export const messageRoutes = new Elysia()
@@ -55,7 +58,22 @@ export const messageRoutes = new Elysia()
   // ^^^^ (future merge confict message) FR-14 .post('/api/directMessage/:conversationId' is above this line
   // The next thing goes below this line
 
+  //listing conversations
   .get('/api/me/conversations', ({ user }) => {
     const conversations = listConversations(user.user_id)
     return conversations
+  })
+
+  //listing messages in a specific conversation
+  .get('/api/me/conversations/:conversationId', ({ params, user, set }) => {
+    if (!conversationExists(params.conversationId)) {
+      set.status = 404
+      return { error: 'Cannot find conversation' }
+    }
+    if (!isActiveMember(params.conversationId, user.user_id)) {
+      set.status = 403
+      return { error: 'Not an active member of this conversation'}
+    }
+    const messages = getAllMessagesInConvo(params.conversationId)
+    return messages
   })

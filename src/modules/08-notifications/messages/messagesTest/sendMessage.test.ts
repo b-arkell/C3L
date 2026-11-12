@@ -1,7 +1,9 @@
 import { describe, expect, test } from 'bun:test'
 import { db } from '../../db/database'
 import { messageRoutes } from '../routes'
-import { retrieveConversation, type Conversation } from '../repository'
+import { sendMessage } from '../service'
+import { retrieveConversation, Conversation, Message } from '../repository'
+
 
 
 function addTestConversation(conversationId: string, userId: string) {
@@ -351,9 +353,47 @@ describe ('[FR-16] List conversations', () => {
         expect(responseBody2.map(c => c.id)).not.toContain(conversationId2)
     })
 
+    
     //FR-16
     //TODO: test for group name after group creation is implemented.
     //TODO: test for unread flag per conversation from FR-18 (feeds US-05)
+    
+    test('FR-16b: getting the ordered messages in a conversation', async () => {
+        // Arrange
+        const conversationId = 'test-conversation-14'
+        const userId = 'user_3'
+        const message1 = 'First message of 2'
+        const message2 = 'Second message of 2'
+        addTestConversation(conversationId, userId)
+
+        // Act
+        const response1 = await messageRoutes.handle(
+            new Request('http://localhost:3000/api/directMessage/test-conversation-14?user_id=user_3', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: `${message1}` }),
+            })
+        )
+        const response2 = await messageRoutes.handle(
+            new Request('http://localhost:3000/api/directMessage/test-conversation-14?user_id=user_3', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: `${message2}` }),
+            })
+        )
+        const response3 = await messageRoutes.handle(
+            new Request(`http://localhost:3000/api/me/conversations/${conversationId}?user_id=${userId}`, {
+                method: 'GET',
+            })
+        )
+        const responseBody = await response3.json() as Message[]
+        // console.log('Response status:', response3.status)
+        // console.log('Response body:', await response3.text())
+
+        // Assert
+        expect(responseBody.at(0)?.body).toBe(message2)
+    })
+
 })
 
 // FR-15 Leave conversation via PATCH /api/directMessage/unsubscribe/:conversation_id
@@ -378,7 +418,7 @@ describe ('[FR-16] List conversations', () => {
     //             method: 'GET',
     //         })
     //     )
-
+    //     // user1 leaves conversationId1
     //     const response2 = await messageRoutes.handle(
     //         new Request(`http://localhost:3000/api/me/conversations?user_id=${userId1}`, {
     //             method: 'GET',
