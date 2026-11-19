@@ -45,12 +45,42 @@ export const CSS = `
     margin-bottom: 12px;
   }
   form input,
-  form textarea {
+  form textarea,
+  form select {
     width: 100%;
     padding: 6px;
     box-sizing: border-box;
   }
+
+  /* the instructor picker sits under the edit form, so give it some room */
+  .assign-form {
+    margin-top: 8px;
+  }
   form button {
     padding: .5rem 1rem;
+  }
+
+  /* archived course styling - dimmed with a small badge */
+  .card.archived {
+    opacity: 0.6;
+    border-style: dashed;
+  }
+  .badge {
+    background: #666;
+    color: white;
+    font-size: 0.7rem;
+    padding: 2px 6px;
+    border-radius: 3px;
+    vertical-align: middle;
+    margin-left: 6px;
+  }
+  /* form that only holds a button should sit inline, not block */
+  .inline-form {
+    display: inline;
+    margin: 0;
+  }
+  .inline-form button {
+    padding: 2px 8px;
+    font-size: 0.85rem;
   }
 `

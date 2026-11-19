@@ -1,0 +1,393 @@
+openapi: 3.0.3
+info:
+  title: Module 2 - Course Management
+  version: 1.0.0
+  description: |
+    Courses, catalog, enrollment, instructor assignment, and archive for the C3L LMS.
+
+    - Every form-based route consumes `application/x-www-form-urlencoded` and
+      returns a full HTML page.
+    - On success, form routes return a 200 HTML confirmation page.
+    - On error, form routes return a 200 or 4xx HTML page — the message is in
+      an h1, not JSON. See `HtmlErrorPage` below.
+    - The only JSON endpoint is `GET /api/courses`. Everything else is
+      user-facing HTML.
+    - IDs are strings. Course IDs are UUIDs for user-created courses and the
+      literals "1"/"2" for seed data.
+    - All data is in-memory and resets on server restart. No persistence yet.
+servers:
+  - url: /02-courses
+    description: Relative to wherever the LMS is hosted. Override in Swagger UI or Postman.
+
+tags:
+  - name: Courses
+    description: Inter-module JSON API (the only JSON endpoint in this module)
+  - name: Dashboard
+    description: User-facing pages (HTML)
+  - name: Forms
+    description: HTML form pages
+  - name: Archive
+    description: Archive and unarchive actions
+  - name: Enrollment
+    description: Student enrollment
+
+paths:
+
+  # ============================ JSON API ============================
+
+  /api/courses:
+    get:
+      tags: [Courses]
+      summary: List all courses (JSON)
+      description: |
+        Returns every course, active and archived. The only endpoint in this
+        module that returns JSON rather than HTML.
+
+        Other modules use this for lookups. Filter on `archived === false`
+        to get the "open for enrollment" set, then compare
+        `enrollments.length` against `capacity`.
+      responses:
+        '200':
+          description: Array of course records.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [courses]
+                properties:
+                  courses:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Course'
+              example:
+                courses:
+                  - id: '1'
+                    code: PROG2020
+                    title: Advanced Software Development Tools
+                    description: Learning Git, Bun, and web development.
+                    capacity: 30
+                    enrollments: []
+                    instructorId: null
+                    archived: false
+                  - id: '2'
+                    code: CSCN72030
+                    title: System Architecture
+                    description: Designing backend systems and APIs.
+                    capacity: 35
+                    enrollments: [student-42]
+                    instructorId: inst-1
+                    archived: false
+
+  # ============================ DASHBOARD / CATALOG ============================
+
+  /:
+    get:
+      tags: [Dashboard]
+      summary: Course dashboard
+      description: |
+        Lists all active courses as cards with Edit / Archive buttons.
+        Pass `?archived=1` to also show archived courses.
+      parameters:
+        - name: archived
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: ['0', '1']
+          description: "`1` = include archived courses. Anything else = hide them."
+      responses:
+        '200':
+          $ref: '#/components/responses/HtmlPage'
+
+  /catalog:
+    get:
+      tags: [Dashboard]
+      summary: Read-only course catalog
+      description: |
+        Same course data as the dashboard but with no edit/archive controls.
+        Archived courses are always hidden here, even with a query param.
+      responses:
+        '200':
+          $ref: '#/components/responses/HtmlPage'
+
+  # ============================ CREATE ============================
+
+  /create:
+    get:
+      tags: [Forms]
+      summary: Show the create-course form
+      responses:
+        '200':
+          $ref: '#/components/responses/HtmlPage'
+
+    post:
+      tags: [Forms]
+      summary: Submit the create-course form
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CourseFormInput'
+      responses:
+        '200':
+          description: |
+            Success — HTML confirmation page. (Errors during creation are
+            not currently surfaced as distinct status codes; the client-side
+            `required` attributes on the form prevent most of them.)
+          $ref: '#/components/responses/HtmlPage'
+
+  # ============================ EDIT ============================
+
+  /{id}/edit:
+    get:
+      tags: [Forms]
+      summary: Show the edit-course form
+      parameters:
+        - $ref: '#/components/parameters/CourseId'
+      responses:
+        '200':
+          $ref: '#/components/responses/HtmlPage'
+        '404':
+          description: Course doesn't exist — HTML "Course not found" page
+          $ref: '#/components/responses/HtmlErrorPage'
+
+    post:
+      tags: [Forms]
+      summary: Submit the edit-course form
+      description: |
+        Only the four form fields (code, title, description, capacity) are
+        updated. enrollments, instructorId, and archived are untouched by
+        this route — see the assign-instructor and archive routes.
+      parameters:
+        - $ref: '#/components/parameters/CourseId'
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CourseFormInput'
+      responses:
+        '200':
+          $ref: '#/components/responses/HtmlPage'
+        '404':
+          $ref: '#/components/responses/HtmlErrorPage'
+
+  # ============================ INSTRUCTOR ============================
+
+  /{id}/assign-instructor:
+    post:
+      tags: [Forms]
+      summary: Set or clear the instructor on a course
+      description: |
+        An empty `instructorId` means "Unassigned" and clears the current
+        instructor. Non-empty must match a known instructor ID.
+      parameters:
+        - $ref: '#/components/parameters/CourseId'
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [instructorId]
+              properties:
+                instructorId:
+                  type: string
+                  description: "Empty string clears; otherwise must be a known instructor ID"
+                  example: inst-1
+      responses:
+        '200':
+          $ref: '#/components/responses/HtmlPage'
+        '400':
+          description: Unknown instructor — HTML "Instructor not found" page
+          $ref: '#/components/responses/HtmlErrorPage'
+        '404':
+          description: Course not found
+          $ref: '#/components/responses/HtmlErrorPage'
+
+  # ============================ ENROLLMENT ============================
+
+  /enroll:
+    get:
+      tags: [Enrollment]
+      summary: Enrollment page
+      description: |
+        One card per course with an inline "enroll a student" form.
+        Archived courses still appear here (the dashboard toggle is what
+        hides them, not this page).
+      responses:
+        '200':
+          $ref: '#/components/responses/HtmlPage'
+
+  /{id}/enroll:
+    post:
+      tags: [Enrollment]
+      summary: Enroll a student in a course
+      description: |
+        Rejected if studentId is empty, the student is already enrolled,
+        or the course is at capacity.
+      parameters:
+        - $ref: '#/components/parameters/CourseId'
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [studentId]
+              properties:
+                studentId:
+                  type: string
+                  example: student-42
+      responses:
+        '200':
+          $ref: '#/components/responses/HtmlPage'
+        '404':
+          description: |
+            Course not found, or one of the enrollment preconditions failed
+            (empty studentId, duplicate enrollment, course full). Errors use
+            the same HTML error page as course-not-found because that's what
+            the underlying notFoundPage() helper renders.
+          $ref: '#/components/responses/HtmlErrorPage'
+
+  # ============================ ARCHIVE ============================
+
+  /{id}/archive:
+    post:
+      tags: [Archive]
+      summary: Archive a course
+      description: |
+        Sets archived = true. Idempotent — calling it on an already-archived
+        course still returns success. Does not touch enrollments or any other
+        field.
+      parameters:
+        - $ref: '#/components/parameters/CourseId'
+      responses:
+        '200':
+          $ref: '#/components/responses/HtmlPage'
+        '404':
+          $ref: '#/components/responses/HtmlErrorPage'
+
+  /{id}/unarchive:
+    post:
+      tags: [Archive]
+      summary: Unarchive a course
+      description: Sets archived = false. Idempotent, same as archive.
+      parameters:
+        - $ref: '#/components/parameters/CourseId'
+      responses:
+        '200':
+          $ref: '#/components/responses/HtmlPage'
+        '404':
+          $ref: '#/components/responses/HtmlErrorPage'
+
+components:
+
+  parameters:
+    CourseId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+      description: |
+        Course ID. Either a UUID (for user-created courses) or the literal
+        "1" / "2" for seed data. Treat as opaque.
+      example: '1'
+
+  schemas:
+
+    Course:
+      type: object
+      description: A single course. All fields are always present.
+      required: [id, code, title, description, capacity, enrollments, instructorId, archived]
+      properties:
+        id:
+          type: string
+          description: Opaque identifier. Do not parse.
+          example: '1'
+        code:
+          type: string
+          description: Department prefix + number. May not be unique.
+          example: PROG2020
+        title:
+          type: string
+          example: Advanced Software Development Tools
+        description:
+          type: string
+          description: Free-form. Treat as plain text.
+          example: Learning Git, Bun, and web development.
+        capacity:
+          type: integer
+          minimum: 1
+          description: |
+            Max enrolled. May be lowered below the current enrollment count by
+            an edit. Consumers checking "is it full?" should compare
+            enrollments.length >= capacity.
+          example: 30
+        enrollments:
+          type: array
+          description: |
+            Opaque student IDs. Module 2 doesn't know anything further about
+            the students — resolve through Module 1.
+          items:
+            type: string
+          example: [student-42]
+        instructorId:
+          type: string
+          nullable: true
+          description: |
+            Reference to the assigned instructor, or null. Currently points at
+            a hardcoded seed list inside Module 2; a future sprint moves it to
+            Module 1 user records without changing the field name or the
+            nullability.
+          example: inst-1
+        archived:
+          type: boolean
+          description: |
+            If true, hidden from default dashboard and public catalog.
+            Archiving does NOT delete the course, alter enrollments, or
+            change any other field.
+          example: false
+
+    CourseFormInput:
+      type: object
+      description: |
+        The four fields the create/edit form submits. Note that enrollments,
+        instructorId, and archived are intentionally absent — they're managed
+        by their own routes and can't be clobbered by an edit.
+      required: [code, title, description, capacity]
+      properties:
+        code:
+          type: string
+          example: PROG2020
+        title:
+          type: string
+          example: Advanced Software Development Tools
+        description:
+          type: string
+          example: Learning Git, Bun, and web development.
+        capacity:
+          type: integer
+          minimum: 1
+          example: 30
+
+  responses:
+
+    HtmlPage:
+      description: A rendered HTML page
+      content:
+        text/html:
+          schema:
+            type: string
+
+    HtmlErrorPage:
+      description: |
+        A rendered HTML page whose h1 contains a plain-language error message.
+        Not JSON, because every Module 2 route is user-facing.
+      content:
+        text/html:
+          schema:
+            type: string
+          example: '<!doctype html><html>...<h1>Course not found</h1>...</html>'
