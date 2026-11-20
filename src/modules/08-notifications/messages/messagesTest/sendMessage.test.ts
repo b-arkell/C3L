@@ -1,8 +1,9 @@
 import { describe, expect, test } from 'bun:test'
 import { db } from '../../db/database'
 import { messageRoutes } from '../routes'
-import { sendMessage } from '../service'
+import { listConversations, sendMessage, SendMessageResult } from '../service'
 import { retrieveConversation, Conversation, Message } from '../repository'
+import { conversationExists, isActiveMember } from '../validation'
 
 
 
@@ -396,34 +397,171 @@ describe ('[FR-16] List conversations', () => {
 
 })
 
-// FR-15 Leave conversation via PATCH /api/directMessage/unsubscribe/:conversation_id
-// //TODO: test for conversation_members.left_at to check that the conversation disappears from their GET results
-    // test('test for conversation_members.left_at to check that the conversation disappears from their GET results', async () => {
-    //     // Arrange 
-    //     const conversationId1 = 'test-conversation-14'
-    //     const conversationId2 = 'test-conversation-15'
-    //     const userId1 = 'user_10'
-    //     const userId2 = 'user_11'
-    //     addTestConversation(conversationId1, userId1)
-    //     addTestConversation(conversationId2, userId1)
-    //     const now = new Date().toISOString()
-    //     const insertConversationMembers = db.prepare(
-    //     'INSERT OR IGNORE INTO conversation_members (conversation_id, user_id, joined_at) VALUES (?, ?, ?)'
-    //     )
-    //     insertConversationMembers.run(conversationId1, userId2, now)
+describe ('[FR-15] Leave conversations', () => {
+    //FR-15 Leave conversation via PATCH /api/directMessage/unsubscribe/:conversation_id
+    //TODO: test for conversation_members.left_at to check that the conversation disappears from their GET results
+        test('test for conversation_members.left_at to check that the conversation disappears from their GET results', async () => {
+            // Arrange 
+            const conversationId1 = 'test-conversation-14'
+            const conversationId2 = 'test-conversation-15'
+            const userId1 = 'user_10'
+            const userId2 = 'user_11'
+            addTestConversation(conversationId1, userId1)
+            addTestConversation(conversationId2, userId1)
+            const now = new Date().toISOString()
+            const insertConversationMembers = db.prepare(
+            'INSERT OR IGNORE INTO conversation_members (conversation_id, user_id, joined_at) VALUES (?, ?, ?)'
+            )
+            insertConversationMembers.run(conversationId1, userId2, now)
+    
+            // Act
+            // user1 leaves conversationId1
+            const response = await messageRoutes.handle(
+                new Request(`http://localhost:3000/api/directMessage/unsubscribe/${conversationId1}?user_id=${userId1}`, {
+                    method: 'PATCH',
+                })
+            )
+            const response2 = await messageRoutes.handle(
+                new Request(`http://localhost:3000/api/me/conversations?user_id=${userId1}`, {
+                    method: 'GET',
+                })
+            )
+            // user1 tries leaving conversation1 again
+            const response3 = await messageRoutes.handle(
+                new Request(`http://localhost:3000/api/directMessage/unsubscribe/${conversationId1}?user_id=${userId1}`, {
+                    method: 'PATCH',
+                })
+            )
+            // const responseBody = await response.json() as Conversation[]
+            const responseBody2 = await response2.json() as Conversation[]
 
-    //     // Act
-    //     const response = await messageRoutes.handle(
-    //         new Request(`http://localhost:3000/api/me/conversations?user_id=${userId1}`, {
-    //             method: 'GET',
-    //         })
-    //     )
-    //     // user1 leaves conversationId1
-    //     const response2 = await messageRoutes.handle(
-    //         new Request(`http://localhost:3000/api/me/conversations?user_id=${userId1}`, {
-    //             method: 'GET',
-    //         })
-    //     )
-    //     const responseBody = await response.json() as Conversation[]
-    //     const responseBody2 = await response2.json() as Conversation[]
-    // })
+            // Assert
+            expect(response.status).toBe(200)   // user left convo
+            expect(response2.status).toBe(200)
+            expect(response3.status).toBe(404)  // checking that convo that user left is not found
+            expect(responseBody2).toHaveLength(1)
+            expect(responseBody2.map(c => c.id)).not.toContain(conversationId1)
+            expect(responseBody2.map(c => c.id)).toContain(conversationId2)
+        })
+
+        test('test that user cannot send message after leaving convo getting 403', async () => {
+            //Arrange
+            const conversationId1 = 'test-conversation-17'
+            const userId1 = 'user_10'
+            const userId2 = 'user_11'
+            addTestConversation(conversationId1, userId1)
+            const now = new Date().toISOString()
+            const insertConversationMembers = db.prepare(
+            'INSERT OR IGNORE INTO conversation_members (conversation_id, user_id, joined_at) VALUES (?, ?, ?)'
+            )
+            insertConversationMembers.run(conversationId1, userId2, now)
+            const message1 = "I shouldn't be allowed to send to this convo"
+
+            //Act
+            const response = await messageRoutes.handle(
+                new Request(`http://localhost:3000/api/directMessage/unsubscribe/${conversationId1}?user_id=${userId1}`, {
+                    method: 'PATCH',
+                })
+            )
+            const response2 = await messageRoutes.handle(
+                new Request(`http://localhost:3000/api/directMessage/${conversationId1}?user_id=${userId1}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: `${message1}` }),
+                })
+            )
+            const responseBody = await response2.json() as {error: string}
+
+            //Act
+            expect(response.status).toBe(200)
+            expect(response2.status).toBe(403)
+            expect(responseBody.error).toBe('User is not an active member of this conversation')
+        })
+
+        test('test that row is NOT deleted after user leaves conversation', async () => {
+            // Arrange
+            const conversationId = 'test-FR17-convo-1'
+            const userId = 'user_12'
+            addTestConversation(conversationId, userId)
+
+            // Act
+            const response = await messageRoutes.handle(
+                new Request(`http://localhostL:3000/api/directMessage/unsubscribe/${conversationId}?user_id=${userId}`, {
+                    method: 'PATCH',
+                })
+            )
+            //const conversation = retrieveConversation(userId) as Conversation[]
+            const membership = db.prepare(
+                `SELECT *
+                FROM conversation_members
+                WHERE conversation_id = ?
+                AND user_id = ?`
+            ).get(conversationId, userId) as { 
+                conversation_id: string
+                user_id: string
+                left_at: string | null
+            } | null
+
+            // Assert
+            expect(response.status).toBe(200)
+            expect(membership?.conversation_id).toEqual(conversationId)
+            expect(membership?.left_at).not.toBe(null)
+        })
+
+        test('test that trying to leave twice returns 404', async () => {
+            // Arrange
+            const conversationId = 'test-FR17-convo-2'
+            const userId = 'user_12'
+            addTestConversation(conversationId, userId)
+
+            // Act
+            const response = await messageRoutes.handle(
+                new Request(`http://localhostL:3000/api/directMessage/unsubscribe/${conversationId}?user_id=${userId}`, {
+                    method: 'PATCH',
+                })
+            )
+            const response2 = await messageRoutes.handle(
+                new Request(`http://localhostL:3000/api/directMessage/unsubscribe/${conversationId}?user_id=${userId}`, {
+                    method: 'PATCH',
+                })
+            )
+            expect(response.status).toBe(200)
+            expect(response2.status).toBe(404)
+        })
+
+        //waiting for a propper get message route
+        // test('test that user cannot get message after leaving convo getting 403', async () => {
+        //     //Arrange
+        //     const conversationId1 = 'test-conversation-18'
+        //     const userId1 = 'user_10'
+        //     const userId2 = 'user_11'
+        //     addTestConversation(conversationId1, userId1)
+        //     const now = new Date().toISOString()
+        //     const insertConversationMembers = db.prepare(
+        //     'INSERT OR IGNORE INTO conversation_members (conversation_id, user_id, joined_at) VALUES (?, ?, ?)'
+        //     )
+        //     insertConversationMembers.run(conversationId1, userId2, now)
+        //     const message1 = "I shouldn't be allowed to send to this convo"
+
+        //     //Act
+        //     const response = await messageRoutes.handle(
+        //         new Request(`http://localhost:3000/api/directMessage/unsubscribe/${conversationId1}?user_id=${userId1}`, {
+        //             method: 'PATCH',
+        //         })
+        //     )
+        //     // change this to get message route when availablle
+        //     const response2 = await messageRoutes.handle(
+        //         new Request(`http://localhost:3000/api/directMessage/${conversationId1}?user_id=${userId1}`, {
+        //             method: 'POST',
+        //         headers: { 'Content-Type': 'application/json' },
+        //         body: JSON.stringify({ message: `${message1}` }),
+        //         })
+        //     )
+        //     const responseBody = await response2.json() as {error: string}
+
+        //     //Act
+        //     expect(response.status).toBe(200)
+        //     expect(response2.status).toBe(403)
+        //     expect(responseBody.error).toBe('User is not an active member of this conversation')
+        // })
+})

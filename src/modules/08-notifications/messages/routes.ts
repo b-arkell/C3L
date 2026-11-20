@@ -1,7 +1,7 @@
 import { Elysia, t } from 'elysia'
 import { auth } from '../auth'
 import { page } from '../views'
-import { getAllMessagesInConvo, listConversations, sendMessage } from './service'
+import { getAllMessagesInConvo, leaveConversation, listConversations, sendMessage } from './service'
 import { set } from 'better-auth'
 import { conversationExists, isActiveMember } from './validation'
 
@@ -76,4 +76,14 @@ export const messageRoutes = new Elysia()
     }
     const messages = getAllMessagesInConvo(params.conversationId)
     return messages
+  })
+
+  //leaving conversation
+  .patch('/api/directMessage/unsubscribe/:conversationId', ({ params, user, set}) => {
+    if (!leaveConversation(params.conversationId, user.user_id)) {
+      set.status = 404
+      return { error: 'Cannot find conversation' }
+    }
+    set.status = 200
+    return { message: 'Member left conversation' }
   })

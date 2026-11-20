@@ -74,3 +74,12 @@ export function retrieveAllMessages(conversationId: string): Message[] {
     ).all(conversationId) as Message[]
     return getMessages
 }
+
+// update left_at in conversation_members
+export function updateLeftAt(conversationId: string, userId: string) {
+    const leftAt = new Date().toISOString()
+    const updateConversation = db.prepare(
+        'UPDATE conversation_members SET left_at = ? WHERE conversation_id = ? AND user_id = ? AND left_at IS NULL'
+    )
+    updateConversation.run(leftAt, conversationId, userId)
+}
