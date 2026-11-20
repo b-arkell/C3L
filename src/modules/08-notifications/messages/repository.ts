@@ -58,3 +58,28 @@ export function retrieveConversation(userId: string): Conversation[] {
     ).all(userId) as Conversation[]
     return getConvoStmt
 }
+
+// get the last message of a conversation by conversationId - gets descending order then takes the top (most recent) record
+export function retrieveLastMessage(conversationId: string): Message {
+    const getMessage = db.prepare(
+        'SELECT * FROM messages WHERE conversation_id = conversationId ORDERED BY created_at LIMIT 1'
+    ).get(conversationId) as Message
+    return getMessage
+}
+
+// get all messages of a conversation by conversationId - descending order (most recent first)
+export function retrieveAllMessages(conversationId: string): Message[] {
+    const getMessages = db.prepare(
+        'SELECT * FROM messages WHERE conversation_id = ? ORDER BY created_at DESC'
+    ).all(conversationId) as Message[]
+    return getMessages
+}
+
+// update left_at in conversation_members
+export function updateLeftAt(conversationId: string, userId: string) {
+    const leftAt = new Date().toISOString()
+    const updateConversation = db.prepare(
+        'UPDATE conversation_members SET left_at = ? WHERE conversation_id = ? AND user_id = ? AND left_at IS NULL'
+    )
+    updateConversation.run(leftAt, conversationId, userId)
+}
