@@ -6,6 +6,7 @@ import { messageRoutes } from '../routes'
 beforeAll(useFakeUserForTests)
 
 beforeEach(() => {
+    db.exec('DELETE FROM messages')
     db.exec('DELETE FROM conversation_members')
     db.exec('DELETE FROM conversations')
 })
@@ -217,5 +218,24 @@ describe('[FR-13] Prevent duplicate 1:1 conversations', () => {
 
         expect(conversation.direct_key)
             .toBe('user_a|user_b')
+    })
+    test('rejects creating a conversation with yourself', async () => {
+
+        const response = await messageRoutes.handle(
+            new Request(
+                'http://localhost:3000/api/directMessageCreation?user_id=user_1',
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        recipients_emails: ['user_1'],
+                    }),
+                },
+            ),
+        )
+
+        expect(response.status).toBe(400)
     })
 })

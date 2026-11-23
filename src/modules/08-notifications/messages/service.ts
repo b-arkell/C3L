@@ -18,6 +18,9 @@ export type CreateConversationResult =
           status: 'existing'
           conversationId: string
       }
+    | {
+          status: 'self_conversation'
+      }
 
 function buildDirectKey(
     userA: string,
@@ -37,14 +40,22 @@ export function createConversation(
 
     const now = new Date().toISOString()
 
+    const uniqueRecipients = [...new Set(recipients)]
+
+    if (uniqueRecipients.includes(creatorId)) {
+        return {
+            status: 'self_conversation',
+        }
+    }
+
     //
     // DIRECT MESSAGE
     //
-    if (recipients.length === 1) {
+    if (uniqueRecipients.length === 1) {
 
         const directKey = buildDirectKey(
             creatorId,
-            recipients[0],
+            uniqueRecipients[0],
         )
 
         const existing =
@@ -79,7 +90,7 @@ export function createConversation(
 
         insertConversationMember(
             conversationId,
-            recipients[0],
+            uniqueRecipients[0],
             now,
         )
 
@@ -109,7 +120,7 @@ export function createConversation(
         now,
     )
 
-    for (const recipient of recipients) {
+    for (const recipient of uniqueRecipients) {
 
         insertConversationMember(
             conversationId,

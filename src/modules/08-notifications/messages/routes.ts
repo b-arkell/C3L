@@ -33,6 +33,16 @@ export const messageRoutes = new Elysia()
         body.recipients_emails,
       )
 
+      if (result.status === 'self_conversation') {
+
+        set.status = 400
+
+        return {
+          error:
+            'Cannot create a conversation with yourself',
+        }
+      }
+
       set.status =
         result.status === 'created'
           ? 201
