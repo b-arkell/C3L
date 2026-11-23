@@ -1,9 +1,9 @@
 import { describe, expect, test } from 'bun:test'
 import { db } from '../../db/database'
 import { messageRoutes } from '../routes'
-import { getAllUnread, getFirstUnread, listConversations, sendMessage, SendMessageResult } from '../service'
-import { retrieveConversation, Conversation, Message } from '../repository'
-import { conversationExists, isActiveMember } from '../validation'
+import { getAllUnread, getFirstUnread, listConversations } from '../service'
+import { retrieveConversation, type Conversation, type Message } from '../repository'
+//import { conversationExists, isActiveMember } from '../validation'
 
 
 
@@ -392,6 +392,8 @@ describe ('[FR-16] List conversations', () => {
         // console.log('Response body:', await response3.text())
 
         // Assert
+        expect(response1.status).toBe(201)
+        expect(response2.status).toBe(201)
         expect(responseBody.at(0)?.body).toBe(message2)
     })
 

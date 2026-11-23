@@ -2,9 +2,9 @@ import { Elysia, t } from 'elysia'
 import { auth } from '../auth'
 import { page } from '../views'
 import { getAllMessagesInConvo, leaveConversation, listConversations, markAsRead, sendMessage } from './service'
-import { set } from 'better-auth'
+//import { set } from 'better-auth'
 import { conversationExists, isActiveMember } from './validation'
-import { updateLastReadAt } from './repository'
+//import { updateLastReadAt } from './repository'
 
 
 
