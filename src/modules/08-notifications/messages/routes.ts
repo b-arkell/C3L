@@ -5,13 +5,13 @@ import { getAllMessagesInConvo, leaveConversation, listConversations, markAsRead
 //import { set } from 'better-auth'
 import { conversationExists, isActiveMember } from './validation'
 //import { updateLastReadAt } from './repository'
-
+import { messagesPage } from './messagesPage'
 
 
 export const messageRoutes = new Elysia()
   .use(auth)
-  .get('/messages', () => page('Messages', '<h1>Messages</h1><p>Coming soon.</p>'))
-
+  //.get('/messages', () => page('Messages', '<h1>Messages</h1><p>Coming soon.</p>'))
+  .get('/messages', () => page('Direct Messages', messagesPage()))
 
   .post('/api/directMessageCreation', ({ body, user, set }) => {
       if (
