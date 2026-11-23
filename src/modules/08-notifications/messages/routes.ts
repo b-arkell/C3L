@@ -1,9 +1,10 @@
 import { Elysia, t } from 'elysia'
 import { auth } from '../auth'
 import { page } from '../views'
-import { getAllMessagesInConvo, leaveConversation, listConversations, sendMessage } from './service'
+import { getAllMessagesInConvo, leaveConversation, listConversations, markAsRead, sendMessage } from './service'
 import { set } from 'better-auth'
 import { conversationExists, isActiveMember } from './validation'
+import { updateLastReadAt } from './repository'
 
 
 
@@ -55,6 +56,19 @@ export const messageRoutes = new Elysia()
     })
   })
 
+  // updating last read at
+  .patch('/api/me/conversations/:conversationId/read', ({ params, user, set }) => {
+    const isRead = markAsRead(params.conversationId, user.user_id)
+    if (!isRead) {
+      set.status = 404
+      return { error: 'Conversation not found or user is not an active member' }
+    }
+    else {
+      set.status = 200
+      return { message: 'Conversation marked as read' }
+    }
+  }) 
+
   // ^^^^ (future merge confict message) FR-14 .post('/api/directMessage/:conversationId' is above this line
   // The next thing goes below this line
 
@@ -76,6 +90,16 @@ export const messageRoutes = new Elysia()
     }
     const messages = getAllMessagesInConvo(params.conversationId)
     return messages
+
+    //const chronologicalMessages = messages.reverse()  // messages are retrieved newest to oldest, this switches them.(quick fix)
+
+    // const previouslyRead = messages.filter(
+    //   message => message.created_at <= lastReadAt 
+    // )
+    // const unread = messages.filter(
+    //   message => message.created_at > lastReadAt
+    // )
+
   })
 
   //leaving conversation

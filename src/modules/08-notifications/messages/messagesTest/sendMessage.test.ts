@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { db } from '../../db/database'
 import { messageRoutes } from '../routes'
-import { listConversations, sendMessage, SendMessageResult } from '../service'
+import { getAllUnread, getFirstUnread, listConversations, sendMessage, SendMessageResult } from '../service'
 import { retrieveConversation, Conversation, Message } from '../repository'
 import { conversationExists, isActiveMember } from '../validation'
 
@@ -564,4 +564,125 @@ describe ('[FR-15] Leave conversations', () => {
         //     expect(response2.status).toBe(403)
         //     expect(responseBody.error).toBe('User is not an active member of this conversation')
         // })
+})
+
+
+describe ('[FR-18] Track unread messages per member with last_read_at', () => {
+    test('FR-18: All messages are unread when last_read_at is NULL', async () => {
+        // Arrange
+        const conversationId = 'FR-18-test-01'
+        const userId = 'user_19'
+        const message1 = 'First Message of test 01'
+        const message2 = 'Second message of test 02'
+        addTestConversation(conversationId, userId)
+
+        const response1 = await messageRoutes.handle(
+            new Request(`http://localhost:3000/api/directMessage/${conversationId}?user_id=${userId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: `${message1}` }),
+            })
+        )
+        const response2 = await messageRoutes.handle(
+            new Request(`http://localhost:3000/api/directMessage/${conversationId}?user_id=${userId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: `${message2}` }),
+            })
+        )
+
+        
+        // Act
+        const responseBody1 = await response1.json() as Message
+        const responseBody2 = await response2.json() as Message
+        
+        db.prepare(
+            'UPDATE messages SET created_at = ? WHERE id = ?'
+        ).run('2026-11-20T10:00:00.000Z', responseBody1.id)
+
+        db.prepare(
+            'UPDATE messages SET created_at = ? WHERE id = ?'
+        ).run('2026-11-20T10:05:00.000Z', responseBody2.id)
+
+        const firstUnread = getFirstUnread(conversationId, userId)
+        const allUnread = getAllUnread(conversationId, userId)
+
+        // Assert
+        // Assert
+        expect(response1.status).toBe(201)
+        expect(response2.status).toBe(201)
+
+        expect(firstUnread).not.toBeNull()
+        expect(firstUnread?.id).toBe(responseBody1.id)
+
+        expect(allUnread).not.toBeNull()
+        expect(allUnread).toHaveLength(2)
+    })
+
+
+    test('FR-18: has_unread updates when messages are sent and read', async () => {
+        // Arrange
+        const conversationId = 'FR-18-test-02'
+        const userId = 'user_20'
+        addTestConversation(conversationId, userId)
+
+        // Act 1: Send the first message
+        const response1 = await messageRoutes.handle(
+            new Request(`http://localhost:3000/api/directMessage/${conversationId}?user_id=${userId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: 'First unread message' })
+            })
+        )
+
+        const conversationsBeforeRead = listConversations(userId)
+        const conversationBeforeRead = conversationsBeforeRead.find(
+            c => c.id === conversationId
+        )
+
+        // Assert 1: Conversation has unread messages
+        expect(response1.status).toBe(201)
+        expect(conversationBeforeRead?.has_unread).toBe(1)
+
+        // Act 2: Mark the conversation as read
+        const readResponse = await messageRoutes.handle(
+            new Request(`http://localhost:3000/api/me/conversations/${conversationId}/read?user_id=${userId}`, {
+                method: 'PATCH'
+            })
+        )
+
+        const conversationsAfterRead = listConversations(userId)
+        const conversationAfterRead = conversationsAfterRead.find(
+            c => c.id === conversationId
+        )
+
+        // Assert 2: Conversation no longer has unread messages
+        expect(readResponse.status).toBe(200)
+        expect(conversationAfterRead?.has_unread).toBe(0)
+
+        // Act 3: Send another message after the read timestamp
+        // Set last_read_at to a known earlier timestamp to avoid
+        // millisecond timing collisions in this test.
+        db.prepare(
+            'UPDATE conversation_members SET last_read_at = ? WHERE conversation_id = ? AND user_id = ?'
+        ).run('2026-01-01T00:00:00.000Z', conversationId, userId)
+
+        const response2 = await messageRoutes.handle(
+            new Request(`http://localhost:3000/api/directMessage/${conversationId}?user_id=${userId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: 'Second unread message' })
+            })
+        )
+
+        const conversationsAfterNewMessage = listConversations(userId)
+        const conversationAfterNewMessage = conversationsAfterNewMessage.find(
+            c => c.id === conversationId
+        )
+
+        // Assert 3: Conversation has unread messages again
+        expect(response2.status).toBe(201)
+        expect(conversationAfterNewMessage?.has_unread).toBe(1)
+    })
+
 })
