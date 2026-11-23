@@ -1,6 +1,6 @@
 // Sam - Service functions for messaging routes
 
-import { type Conversation, insertMessage, retrieveAllMessages, retrieveConversation, retrieveLastMessage, retrieveLastReadAt, updateLastReadAt, updateLeftAt, type Message } from './repository'
+import { type Conversation, insertMessage, retrieveAllMessages, findConversationByDirectKey, insertConversation, insertConversationMember, retrieveConversation, retrieveLastMessage, retrieveLastReadAt, updateLastReadAt, updateLeftAt, type Message } from './repository'
 import { conversationExists, isActiveMember } from "./validation";
 
 export type SendMessageResult =
@@ -8,6 +8,132 @@ export type SendMessageResult =
     | { status: 'not_a_member' }
     | { status: 'insertion_failed' }
     | { status: 'success'; message: Message }
+
+export type CreateConversationResult =
+    | {
+          status: 'created'
+          conversationId: string
+      }
+    | {
+          status: 'existing'
+          conversationId: string
+      }
+    | {
+          status: 'self_conversation'
+      }
+
+function buildDirectKey(
+    userA: string,
+    userB: string,
+): string {
+
+    return [userA, userB]
+        .sort()
+        .join('|')
+}
+
+export function createConversation(
+    creatorId: string,
+    groupName: string | undefined,
+    recipients: string[],
+): CreateConversationResult {
+
+    const now = new Date().toISOString()
+
+    const uniqueRecipients = [...new Set(recipients)]
+
+    if (uniqueRecipients.includes(creatorId)) {
+        return {
+            status: 'self_conversation',
+        }
+    }
+
+    //
+    // DIRECT MESSAGE
+    //
+    if (uniqueRecipients.length === 1) {
+
+        const directKey = buildDirectKey(
+            creatorId,
+            uniqueRecipients[0],
+        )
+
+        const existing =
+            findConversationByDirectKey(
+                directKey,
+            )
+
+        if (existing) {
+
+            return {
+                status: 'existing',
+                conversationId: existing.id,
+            }
+        }
+
+        const conversationId =
+            crypto.randomUUID()
+
+        insertConversation(
+            conversationId,
+            null,
+            directKey,
+            creatorId,
+            now,
+        )
+
+        insertConversationMember(
+            conversationId,
+            creatorId,
+            now,
+        )
+
+        insertConversationMember(
+            conversationId,
+            uniqueRecipients[0],
+            now,
+        )
+
+        return {
+            status: 'created',
+            conversationId,
+        }
+    }
+
+    //
+    // GROUP MESSAGE
+    //
+    const conversationId =
+        crypto.randomUUID()
+
+    insertConversation(
+        conversationId,
+        groupName ?? null,
+        null,
+        creatorId,
+        now,
+    )
+
+    insertConversationMember(
+        conversationId,
+        creatorId,
+        now,
+    )
+
+    for (const recipient of uniqueRecipients) {
+
+        insertConversationMember(
+            conversationId,
+            recipient,
+            now,
+        )
+    }
+
+    return {
+        status: 'created',
+        conversationId,
+    }
+}
 
 export function sendMessage(conversationId: string, userId: string, message: string): SendMessageResult {
     if (!conversationExists(conversationId))
