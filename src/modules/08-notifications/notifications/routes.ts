@@ -14,6 +14,7 @@ import { storeNotification } from "./storeNotification";
 import { removeMutedUsers } from "./muteFilter";
 import { getNotifications } from "./getNotifications";
 import { markNotificationRead } from "./markNotificationRead";
+import { bellWidget } from "./bellWidget";
 
 export const notificationRoutes = new Elysia()
   .get("/assets/logo.png", () =>
@@ -72,6 +73,7 @@ export const notificationRoutes = new Elysia()
     ),
   )
   .get("/preferences", ({ user }) => preferencesPage(user.user_id))
+  .get("/bellWidget", ({ user }) => bellWidget(user.user_id),)
   .post(
     "api/notifications/subscribe",
     ({ body, set, user }) => {
