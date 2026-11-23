@@ -7,15 +7,15 @@ import {
     getAllUnread,
     getFirstUnread,
     listConversations,
-    sendMessage,
-    type SendMessageResult
+    // sendMessage,
+    // type SendMessageResult
 } from '../service'
 import {
     retrieveConversation,
     type Conversation,
     type Message
 } from '../repository'
-import { conversationExists, isActiveMember } from '../validation'
+// import { conversationExists, isActiveMember } from '../validation'
 
 // These tests use ?user_id= instead of signing in through Module 1
 beforeAll(useFakeUserForTests)
