@@ -3,6 +3,7 @@ import { defineModule, moduleBase } from '../../core/defineModule'
 import { messageRoutes } from './messages/routes'
 import { notificationRoutes } from './notifications/routes'
 import { page } from './views'
+import { bellWidget } from './notifications/bellWidget'
 
 const base = moduleBase(import.meta.dir)
 
@@ -27,6 +28,7 @@ export default defineModule({
           <a href="${base}/inbox">Notification inbox</a>
           <a href="${base}/preferences">Notification preferences</a>
           <a href="${base}/messages">Messages</a>
+          ${bellWidget(base)}
         </div>
 
         <h2>API (GET, opens JSON)</h2>
@@ -39,7 +41,48 @@ export default defineModule({
         <div class="btns">
           <a href="${base}/docs">Swagger docs</a>
           <a href="${base}/openapi.yaml">openapi.yaml</a>
-        </div>`,
+        </div>
+        <script>
+        (async () => {
+          try {
+            const response = await fetch(
+              '${base}/api/users/me/notifications?limit=100'
+            )
+
+            if (!response.ok) {
+              return
+            }
+
+            const notifications = await response.json()
+
+            const hasUnread = notifications.some(
+              notification => notification.read_at === null,
+            )
+
+            if (!hasUnread) {
+              return
+            }
+
+            const dot = document.createElement('span')
+
+            dot.style.position = 'absolute'
+            dot.style.top = '1px'
+            dot.style.right = '1px'
+            dot.style.width = '8px'
+            dot.style.height = '8px'
+            dot.style.borderRadius = '50%'
+            dot.style.backgroundColor = '#cc3333'
+
+            document
+              .getElementById('bell-link')
+              .appendChild(dot)
+
+          } catch {
+            // Ignore failures
+          }
+        })()
+        </script>`,
+        
       ),
     )
     // The API spec file
