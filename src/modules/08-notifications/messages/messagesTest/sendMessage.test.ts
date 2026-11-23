@@ -1,565 +1,654 @@
-import { describe, expect, test } from 'bun:test'
+
+import { beforeAll, describe, expect, test } from 'bun:test'
+import { useFakeUserForTests } from '../../auth'
 import { db } from '../../db/database'
 import { messageRoutes } from '../routes'
-import { getAllUnread, getFirstUnread, listConversations } from '../service'
-import { retrieveConversation, type Conversation, type Message } from '../repository'
-//import { conversationExists, isActiveMember } from '../validation'
+import {
+    getAllUnread,
+    getFirstUnread,
+    listConversations,
+    sendMessage,
+    type SendMessageResult
+} from '../service'
+import {
+    retrieveConversation,
+    type Conversation,
+    type Message
+} from '../repository'
+import { conversationExists, isActiveMember } from '../validation'
 
+// These tests use ?user_id= instead of signing in through Module 1
+beforeAll(useFakeUserForTests)
 
 
 function addTestConversation(conversationId: string, userId: string) {
-    
-    const now = new Date().toISOString()
+  const now = new Date().toISOString();
 
-    const insertConversation = db.prepare(
-        'INSERT OR IGNORE INTO conversations (id, created_by, created_at) VALUES (?, ?, ?)'
-    )
-    insertConversation.run(conversationId, userId, now)
-    
-    const insertConversationMembers = db.prepare(
-        'INSERT OR IGNORE INTO conversation_members (conversation_id, user_id, joined_at) VALUES (?, ?, ?)'
-    )
-    insertConversationMembers.run(conversationId, userId, now)
+  const insertConversation = db.prepare(
+    "INSERT OR IGNORE INTO conversations (id, created_by, created_at) VALUES (?, ?, ?)",
+  );
+  insertConversation.run(conversationId, userId, now);
+
+  const insertConversationMembers = db.prepare(
+    "INSERT OR IGNORE INTO conversation_members (conversation_id, user_id, joined_at) VALUES (?, ?, ?)",
+  );
+  insertConversationMembers.run(conversationId, userId, now);
 }
 
-describe('POST /api/directMessage/:conversationId', () => {
-    test('FR-14: allows an active member to send a message', async () => {
-        
-        // Arrange
-        const conversationId = 'test-conversation-1'
-        const userId = 'user_3'
-        
-        addTestConversation(conversationId, userId)
+describe("POST /api/directMessage/:conversationId", () => {
+  test("FR-14: allows an active member to send a message", async () => {
+    // Arrange
+    const conversationId = "test-conversation-1";
+    const userId = "user_3";
 
-        // Act
-        const response = await messageRoutes.handle(
-            new Request('http://localhost:3000/api/directMessage/test-conversation-1?user_id=user_3', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: 'Hello from our test!' }),
-            })
-        )
+    addTestConversation(conversationId, userId);
 
-        const savedMessages = db.prepare(
-            'SELECT * FROM messages WHERE conversation_id = ?'
-        ).all(conversationId)
+    // Act
+    const response = await messageRoutes.handle(
+      new Request(
+        "http://localhost:3000/api/directMessage/test-conversation-1?user_id=user_3",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: "Hello from our test!" }),
+        },
+      ),
+    );
 
-        // Assert
-        expect(response.status).toBe(201)
-        expect(savedMessages).toHaveLength(1)   // expecting .all(conversationId) to return an array of 1
-    })
+    const savedMessages = db
+      .prepare("SELECT * FROM messages WHERE conversation_id = ?")
+      .all(conversationId);
 
-    test('FR-14: User attempts to send a message to a conversation they don\'t belong to', async () => {
-        // Arrange
-        const conversationId = 'test-conversation-2'
-        const userId = 'user_3'
-        addTestConversation(conversationId, userId)
-        const unauthUserId = 'user_4'
+    // Assert
+    expect(response.status).toBe(201);
+    expect(savedMessages).toHaveLength(1); // expecting .all(conversationId) to return an array of 1
+  });
 
-        // Act
-        const response = await messageRoutes.handle(
-            new Request(`http://localhost:3000/api/directMessage/${conversationId}?user_id=${unauthUserId}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: 'Hello from test 2' }),
-            })
-        )
-        const savedMessages = db.prepare(
-            'SELECT * FROM messages WHERE conversation_id = ?'
-        ).all(conversationId)
+  test("FR-14: User attempts to send a message to a conversation they don't belong to", async () => {
+    // Arrange
+    const conversationId = "test-conversation-2";
+    const userId = "user_3";
+    addTestConversation(conversationId, userId);
+    const unauthUserId = "user_4";
 
-        // Assert
-        expect(response.status).toBe(403)
-        expect(savedMessages).toHaveLength(0)
-    })
+    // Act
+    const response = await messageRoutes.handle(
+      new Request(
+        `http://localhost:3000/api/directMessage/${conversationId}?user_id=${unauthUserId}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: "Hello from test 2" }),
+        },
+      ),
+    );
+    const savedMessages = db
+      .prepare("SELECT * FROM messages WHERE conversation_id = ?")
+      .all(conversationId);
 
-    test('FR-14: User attempts to send a message to a conversation that doesn\'t exist', async () => {
-        // Arrange
-        const conversationId = 'test-conversation-3'
-        const userId = 'user_3'
-        //addTestConversation(conversationId, userId) // a conversation needs to exist or the test fails. I think from some SQL return of null maybe
-        //const wrongConvoId = 'test-wrongConvo-1'
-        // Act
-        const response = await messageRoutes.handle(
-            new Request(`http://localhost:3000/api/directMessage/${conversationId}?user_id=${userId}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: 'Hello form test 3' }),
-            }) 
-        )
-        const savedMessages = db.prepare(
-            'SELECT * FROM messages WHERE conversation_id = ?'
-        ).all(conversationId)
+    // Assert
+    expect(response.status).toBe(403);
+    expect(savedMessages).toHaveLength(0);
+  });
 
-        // Assert
-        expect(response.status).toBe(404)
-        expect(savedMessages).toHaveLength(0)
-    })
+  test("FR-14: User attempts to send a message to a conversation that doesn't exist", async () => {
+    // Arrange
+    const conversationId = "test-conversation-3";
+    const userId = "user_3";
+    //addTestConversation(conversationId, userId) // a conversation needs to exist or the test fails. I think from some SQL return of null maybe
+    //const wrongConvoId = 'test-wrongConvo-1'
+    // Act
+    const response = await messageRoutes.handle(
+      new Request(
+        `http://localhost:3000/api/directMessage/${conversationId}?user_id=${userId}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: "Hello form test 3" }),
+        },
+      ),
+    );
+    const savedMessages = db
+      .prepare("SELECT * FROM messages WHERE conversation_id = ?")
+      .all(conversationId);
 
-    test('FR-14: User sends an empty message body', async () => {
-        // Arrange
-        const conversationId = 'test-conversation-4'
-        const userId = 'user_3'
-        addTestConversation(conversationId, userId)
+    // Assert
+    expect(response.status).toBe(404);
+    expect(savedMessages).toHaveLength(0);
+  });
 
-        // Act
-        const response = await messageRoutes.handle(
-            new Request(`http://localhost:3000/api/directMessage/${conversationId}?user_id=${userId}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: '' }),
-            })
-        )
-        //console.log(response.status)
-        const savedMessages = db.prepare(
-            'SELECT * FROM messages WHERE conversation_id = ?'
-        ).all(conversationId)
+  test("FR-14: User sends an empty message body", async () => {
+    // Arrange
+    const conversationId = "test-conversation-4";
+    const userId = "user_3";
+    addTestConversation(conversationId, userId);
 
-        // Assert
-        expect(response.status).toBe(422)
-        expect(savedMessages).toHaveLength(0)
-    })
+    // Act
+    const response = await messageRoutes.handle(
+      new Request(
+        `http://localhost:3000/api/directMessage/${conversationId}?user_id=${userId}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: "" }),
+        },
+      ),
+    );
+    //console.log(response.status)
+    const savedMessages = db
+      .prepare("SELECT * FROM messages WHERE conversation_id = ?")
+      .all(conversationId);
 
-    test('FR-14: User sends a message body greater than 280', async () => {
-        // Arrange
-        const conversationId = 'test-conversation-5'
-        const userId = 'user_3'
-        addTestConversation(conversationId, userId)
-        const longMessage = 'a'.repeat(281)
+    // Assert
+    expect(response.status).toBe(422);
+    expect(savedMessages).toHaveLength(0);
+  });
 
-        // Act
-        const response = await messageRoutes.handle(
-            new Request(`http://localhost:3000/api/directMessage/${conversationId}?user_id=${userId}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: `${longMessage}` }),
-            })
-        )
-        const savedMessages = db.prepare(
-            'SELECT * FROM messages WHERE conversation_id = ?'
-        ).all(conversationId)
+  test("FR-14: User sends a message body greater than 280", async () => {
+    // Arrange
+    const conversationId = "test-conversation-5";
+    const userId = "user_3";
+    addTestConversation(conversationId, userId);
+    const longMessage = "a".repeat(281);
 
-        // Assert
-        expect(response.status).toBe(422)
-        expect(savedMessages).toHaveLength(0)
-    })
+    // Act
+    const response = await messageRoutes.handle(
+      new Request(
+        `http://localhost:3000/api/directMessage/${conversationId}?user_id=${userId}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: `${longMessage}` }),
+        },
+      ),
+    );
+    const savedMessages = db
+      .prepare("SELECT * FROM messages WHERE conversation_id = ?")
+      .all(conversationId);
 
-    test('FR-14: Verifying the JSON response body for a successful message', async () => {
-        // Arrange
-        const conversationId = 'test-conversation-6'
-        const userId = 'user_3'
-        addTestConversation(conversationId, userId)
-        const message = 'This is a successful message'
+    // Assert
+    expect(response.status).toBe(422);
+    expect(savedMessages).toHaveLength(0);
+  });
 
-        // Act
-        const response = await messageRoutes.handle(
-            new Request(`http://localhost:3000/api/directMessage/${conversationId}?user_id=${userId}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: message }),
-            })
-        )
-        const responseBody = await response.json()
+  test("FR-14: Verifying the JSON response body for a successful message", async () => {
+    // Arrange
+    const conversationId = "test-conversation-6";
+    const userId = "user_3";
+    addTestConversation(conversationId, userId);
+    const message = "This is a successful message";
 
-        // Assert
-        expect(response.status).toBe(201)
-        expect(responseBody).toMatchObject({
-            conversation_id: conversationId,
-            sender_id: userId,
-            body: message
-        })
-        expect(responseBody).toHaveProperty('id')
-        expect(responseBody).toHaveProperty('created_at')
-    })
-})
+    // Act
+    const response = await messageRoutes.handle(
+      new Request(
+        `http://localhost:3000/api/directMessage/${conversationId}?user_id=${userId}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: message }),
+        },
+      ),
+    );
+    const responseBody = await response.json();
 
-describe ('[FR-17] Message storage', () => {
-    test('FR-17: User sends 2 messages successfully. 2 separate record returned', async() => {
-        // Arrange
-        const conversationId = 'test-conversation-7'
-        const userId = 'user_3'
-        addTestConversation(conversationId, userId)
-        const message1 = 'This is the first successful message to the same conversation id '
-        const message2 = 'This is the second successful message to the same conversation id '
+    // Assert
+    expect(response.status).toBe(201);
+    expect(responseBody).toMatchObject({
+      conversation_id: conversationId,
+      sender_id: userId,
+      body: message,
+    });
+    expect(responseBody).toHaveProperty("id");
+    expect(responseBody).toHaveProperty("created_at");
+  });
+});
 
-        // Act
-        const response1 = await messageRoutes.handle(
-            new Request(`http://localhost:3000/api/directMessage/${conversationId}?user_id=${userId}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: message1 }),
-            })
-        )
-        const response2 = await messageRoutes.handle(
-            new Request(`http://localhost:3000/api/directMessage/${conversationId}?user_id=${userId}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: message2 }),
-            })
-        )
-        
-        const responseBody1 = await response1.json() as { id: string }
-        const responseBody2 = await response2.json() as { id: string }
-        const stmt = db.prepare(
-            'SELECT * FROM messages WHERE conversation_id = ?'
-        ).all(conversationId)
+describe("[FR-17] Message storage", () => {
+  test("FR-17: User sends 2 messages successfully. 2 separate record returned", async () => {
+    // Arrange
+    const conversationId = "test-conversation-7";
+    const userId = "user_3";
+    addTestConversation(conversationId, userId);
+    const message1 =
+      "This is the first successful message to the same conversation id ";
+    const message2 =
+      "This is the second successful message to the same conversation id ";
 
-        // Assert
-        expect(response1.status).toBe(201)
-        expect(response2.status).toBe(201)
-        expect(stmt).toHaveLength(2)    // to messages sent with the same conversation ID returns 2 rows, 1 for each message
-        // responseBody1 properties
-        expect(responseBody1).toHaveProperty('conversation_id')
-        expect(responseBody1).toHaveProperty('sender_id')
-        expect(responseBody1).toHaveProperty('body')
-        expect(responseBody1).toHaveProperty('created_at')
-        // responseBody2 properties
-        expect(responseBody2).toHaveProperty('conversation_id')
-        expect(responseBody2).toHaveProperty('sender_id')
-        expect(responseBody2).toHaveProperty('body')
-        expect(responseBody2).toHaveProperty('created_at')
-        // message id comparisons
-        expect(responseBody1).toHaveProperty('id')
-        expect(responseBody2).toHaveProperty('id')
-        expect(responseBody1.id).not.toBe(responseBody2.id)
-    })
+    // Act
+    const response1 = await messageRoutes.handle(
+      new Request(
+        `http://localhost:3000/api/directMessage/${conversationId}?user_id=${userId}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: message1 }),
+        },
+      ),
+    );
+    const response2 = await messageRoutes.handle(
+      new Request(
+        `http://localhost:3000/api/directMessage/${conversationId}?user_id=${userId}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: message2 }),
+        },
+      ),
+    );
 
-    // write test for Foreign key from messages.conversation_id to conversations
-    test('FR-17: Foreign key from messages.conversation_id to conversations', async () => {
-        // Arrange
-        const conversationId = 'test-conversation-8'
-        const userId = 'user_3'
-        addTestConversation(conversationId, userId)
-        const message = 'Testing for messages.conversation_id = conversations.id'
+    const responseBody1 = (await response1.json()) as { id: string };
+    const responseBody2 = (await response2.json()) as { id: string };
+    const stmt = db
+      .prepare("SELECT * FROM messages WHERE conversation_id = ?")
+      .all(conversationId);
 
-        // Act
-        const response = await messageRoutes.handle(
-            new Request(`http://localhost:3000/api/directMessage/${conversationId}?user_id=${userId}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: message }),
-            })
-        )
-        const responseBody = await response.json() as { conversation_id: string, id: string }
-        const selectStmt = db.prepare(
-            'SELECT * FROM conversations WHERE id = ?'
-        ).all(responseBody.conversation_id)
+    // Assert
+    expect(response1.status).toBe(201);
+    expect(response2.status).toBe(201);
+    expect(stmt).toHaveLength(2); // to messages sent with the same conversation ID returns 2 rows, 1 for each message
+    // responseBody1 properties
+    expect(responseBody1).toHaveProperty("conversation_id");
+    expect(responseBody1).toHaveProperty("sender_id");
+    expect(responseBody1).toHaveProperty("body");
+    expect(responseBody1).toHaveProperty("created_at");
+    // responseBody2 properties
+    expect(responseBody2).toHaveProperty("conversation_id");
+    expect(responseBody2).toHaveProperty("sender_id");
+    expect(responseBody2).toHaveProperty("body");
+    expect(responseBody2).toHaveProperty("created_at");
+    // message id comparisons
+    expect(responseBody1).toHaveProperty("id");
+    expect(responseBody2).toHaveProperty("id");
+    expect(responseBody1.id).not.toBe(responseBody2.id);
+  });
 
-        const joinStmt = db.prepare(
-            'SELECT messages.* FROM messages INNER JOIN conversations ON messages.conversation_id = conversations.id WHERE messages.id = ?'
-        ).all(responseBody.id)
+  // write test for Foreign key from messages.conversation_id to conversations
+  test("FR-17: Foreign key from messages.conversation_id to conversations", async () => {
+    // Arrange
+    const conversationId = "test-conversation-8";
+    const userId = "user_3";
+    addTestConversation(conversationId, userId);
+    const message = "Testing for messages.conversation_id = conversations.id";
 
-        // Assert
-        expect(selectStmt).toHaveLength(1)
-        expect(joinStmt).toHaveLength(1)
-    })
+    // Act
+    const response = await messageRoutes.handle(
+      new Request(
+        `http://localhost:3000/api/directMessage/${conversationId}?user_id=${userId}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: message }),
+        },
+      ),
+    );
+    const responseBody = (await response.json()) as {
+      conversation_id: string;
+      id: string;
+    };
+    const selectStmt = db
+      .prepare("SELECT * FROM conversations WHERE id = ?")
+      .all(responseBody.conversation_id);
 
-    // write test Message is stored once per conversation, not copied per member
-    test('FR-17: Message is stored once per conversation, not copied per member', async () => {
-        // Arrange
-        const conversationId = 'test-conversation-9'
-        const userId1 = 'user_3'
-        const userId2 = 'user_4'
-        const userId3 = 'user_5'
-        addTestConversation(conversationId, userId1)
-        const message = 'Testing for message records are stored per convo not per member'
-        const now = new Date().toISOString()
-        const insertConversationMembers = db.prepare(
-        'INSERT OR IGNORE INTO conversation_members (conversation_id, user_id, joined_at) VALUES (?, ?, ?)'
-        )
-        insertConversationMembers.run(conversationId, userId2, now)
-        insertConversationMembers.run(conversationId, userId3, now)
+    const joinStmt = db
+      .prepare(
+        "SELECT messages.* FROM messages INNER JOIN conversations ON messages.conversation_id = conversations.id WHERE messages.id = ?",
+      )
+      .all(responseBody.id);
 
-        // Act
-        await messageRoutes.handle(
-            new Request(`http://localhost:3000/api/directMessage/${conversationId}?user_id=${userId1}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: message }),
-            })
-        )
-        const members = db.prepare(
-            'SELECT * FROM conversation_members WHERE conversation_id = ?'
-        ).all(conversationId)
-        const messages = db.prepare(
-            'SELECT * FROM messages WHERE conversation_id = ?'
-        ).all(conversationId)
+    // Assert
+    expect(selectStmt).toHaveLength(1);
+    expect(joinStmt).toHaveLength(1);
+  });
 
-        // Assert
-        expect(members).toHaveLength(3)
-        expect(messages).toHaveLength(1)
-    })
-})
+  // write test Message is stored once per conversation, not copied per member
+  test("FR-17: Message is stored once per conversation, not copied per member", async () => {
+    // Arrange
+    const conversationId = "test-conversation-9";
+    const userId1 = "user_3";
+    const userId2 = "user_4";
+    const userId3 = "user_5";
+    addTestConversation(conversationId, userId1);
+    const message =
+      "Testing for message records are stored per convo not per member";
+    const now = new Date().toISOString();
+    const insertConversationMembers = db.prepare(
+      "INSERT OR IGNORE INTO conversation_members (conversation_id, user_id, joined_at) VALUES (?, ?, ?)",
+    );
+    insertConversationMembers.run(conversationId, userId2, now);
+    insertConversationMembers.run(conversationId, userId3, now);
 
-describe ('[FR-16] List conversations', () => {
-    test('FR-16a: testing the database retrieval function', async () => {
-        // Arrange
-        const conversationId1 = 'test-conversation-10'
-        const conversationId2 = 'test-conversation-11'
-        const userId1 = 'user_6'
-        const userId2 = 'user_7'
-        addTestConversation(conversationId1, userId1)
-        addTestConversation(conversationId2, userId1)
-        const now = new Date().toISOString()
-        const insertConversationMembers = db.prepare(
-        'INSERT OR IGNORE INTO conversation_members (conversation_id, user_id, joined_at) VALUES (?, ?, ?)'
-        )
-        insertConversationMembers.run(conversationId1, userId2, now)
-        
-        // Act
-        const conversations1 = retrieveConversation(userId1)
-        const conversations2 = retrieveConversation(userId2)
+    // Act
+    await messageRoutes.handle(
+      new Request(
+        `http://localhost:3000/api/directMessage/${conversationId}?user_id=${userId1}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: message }),
+        },
+      ),
+    );
+    const members = db
+      .prepare("SELECT * FROM conversation_members WHERE conversation_id = ?")
+      .all(conversationId);
+    const messages = db
+      .prepare("SELECT * FROM messages WHERE conversation_id = ?")
+      .all(conversationId);
 
-        // Assert
-        expect(conversations1).toHaveLength(2)
-        expect(conversations2).toHaveLength(1)
-    })
+    // Assert
+    expect(members).toHaveLength(3);
+    expect(messages).toHaveLength(1);
+  });
+});
 
-    test('FR-16a: testing the HTTP endpoint', async () => {
-        // Arrange
-        const conversationId1 = 'test-conversation-12'
-        const conversationId2 = 'test-conversation-13'
-        const userId1 = 'user_8'
-        const userId2 = 'user_9'
-        addTestConversation(conversationId1, userId1)
-        addTestConversation(conversationId2, userId1)
-        const now = new Date().toISOString()
-        const insertConversationMembers = db.prepare(
-        'INSERT OR IGNORE INTO conversation_members (conversation_id, user_id, joined_at) VALUES (?, ?, ?)'
-        )
-        insertConversationMembers.run(conversationId1, userId2, now)
-        
-        // Act
-        const response = await messageRoutes.handle(
-            new Request(`http://localhost:3000/api/me/conversations?user_id=${userId1}`, {
-                method: 'GET',
-            })
-        )
-        const response2 = await messageRoutes.handle(
-            new Request(`http://localhost:3000/api/me/conversations?user_id=${userId2}`, {
-                method: 'GET',
-            })
-        )
-        const responseBody = await response.json() as Conversation[]
-        const responseBody2 = await response2.json() as Conversation[]
+describe("[FR-16] List conversations", () => {
+  test("FR-16a: testing the database retrieval function", async () => {
+    // Arrange
+    const conversationId1 = "test-conversation-10";
+    const conversationId2 = "test-conversation-11";
+    const userId1 = "user_6";
+    const userId2 = "user_7";
+    addTestConversation(conversationId1, userId1);
+    addTestConversation(conversationId2, userId1);
+    const now = new Date().toISOString();
+    const insertConversationMembers = db.prepare(
+      "INSERT OR IGNORE INTO conversation_members (conversation_id, user_id, joined_at) VALUES (?, ?, ?)",
+    );
+    insertConversationMembers.run(conversationId1, userId2, now);
 
-        // Assert
-        expect(response.status).toBe(200)
-        expect(responseBody).toHaveLength(2)
-        expect(responseBody.map(c => c.id)).toContain(conversationId1)
-        expect(responseBody.map(c => c.id)).toContain(conversationId2)
-        expect(response.status).toBe(200)
-        expect(responseBody2).toHaveLength(1)
-        expect(responseBody2.map(c => c.id)).toContain(conversationId1)
-        expect(responseBody2.map(c => c.id)).not.toContain(conversationId2)
-    })
+    // Act
+    const conversations1 = retrieveConversation(userId1);
+    const conversations2 = retrieveConversation(userId2);
 
-    
-    //FR-16
-    //TODO: test for group name after group creation is implemented.
-    //TODO: test for unread flag per conversation from FR-18 (feeds US-05)
-    
-    test('FR-16b: getting the ordered messages in a conversation', async () => {
-        // Arrange
-        const conversationId = 'test-conversation-14'
-        const userId = 'user_3'
-        const message1 = 'First message of 2'
-        const message2 = 'Second message of 2'
-        addTestConversation(conversationId, userId)
+    // Assert
+    expect(conversations1).toHaveLength(2);
+    expect(conversations2).toHaveLength(1);
+  });
 
-        // Act
-        const response1 = await messageRoutes.handle(
-            new Request('http://localhost:3000/api/directMessage/test-conversation-14?user_id=user_3', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: `${message1}` }),
-            })
-        )
-        const response2 = await messageRoutes.handle(
-            new Request('http://localhost:3000/api/directMessage/test-conversation-14?user_id=user_3', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: `${message2}` }),
-            })
-        )
-        const response3 = await messageRoutes.handle(
-            new Request(`http://localhost:3000/api/me/conversations/${conversationId}?user_id=${userId}`, {
-                method: 'GET',
-            })
-        )
-        const responseBody = await response3.json() as Message[]
-        // console.log('Response status:', response3.status)
-        // console.log('Response body:', await response3.text())
+  test("FR-16a: testing the HTTP endpoint", async () => {
+    // Arrange
+    const conversationId1 = "test-conversation-12";
+    const conversationId2 = "test-conversation-13";
+    const userId1 = "user_8";
+    const userId2 = "user_9";
+    addTestConversation(conversationId1, userId1);
+    addTestConversation(conversationId2, userId1);
+    const now = new Date().toISOString();
+    const insertConversationMembers = db.prepare(
+      "INSERT OR IGNORE INTO conversation_members (conversation_id, user_id, joined_at) VALUES (?, ?, ?)",
+    );
+    insertConversationMembers.run(conversationId1, userId2, now);
 
-        // Assert
-        expect(response1.status).toBe(201)
-        expect(response2.status).toBe(201)
-        expect(responseBody.at(0)?.body).toBe(message2)
-    })
+    // Act
+    const response = await messageRoutes.handle(
+      new Request(
+        `http://localhost:3000/api/me/conversations?user_id=${userId1}`,
+        {
+          method: "GET",
+        },
+      ),
+    );
+    const response2 = await messageRoutes.handle(
+      new Request(
+        `http://localhost:3000/api/me/conversations?user_id=${userId2}`,
+        {
+          method: "GET",
+        },
+      ),
+    );
+    const responseBody = (await response.json()) as Conversation[];
+    const responseBody2 = (await response2.json()) as Conversation[];
 
-})
+    // Assert
+    expect(response.status).toBe(200);
+    expect(responseBody).toHaveLength(2);
+    expect(responseBody.map((c) => c.id)).toContain(conversationId1);
+    expect(responseBody.map((c) => c.id)).toContain(conversationId2);
+    expect(response.status).toBe(200);
+    expect(responseBody2).toHaveLength(1);
+    expect(responseBody2.map((c) => c.id)).toContain(conversationId1);
+    expect(responseBody2.map((c) => c.id)).not.toContain(conversationId2);
+  });
 
-describe ('[FR-15] Leave conversations', () => {
-    //FR-15 Leave conversation via PATCH /api/directMessage/unsubscribe/:conversation_id
-    //TODO: test for conversation_members.left_at to check that the conversation disappears from their GET results
-        test('test for conversation_members.left_at to check that the conversation disappears from their GET results', async () => {
-            // Arrange 
-            const conversationId1 = 'test-conversation-14'
-            const conversationId2 = 'test-conversation-15'
-            const userId1 = 'user_10'
-            const userId2 = 'user_11'
-            addTestConversation(conversationId1, userId1)
-            addTestConversation(conversationId2, userId1)
-            const now = new Date().toISOString()
-            const insertConversationMembers = db.prepare(
-            'INSERT OR IGNORE INTO conversation_members (conversation_id, user_id, joined_at) VALUES (?, ?, ?)'
-            )
-            insertConversationMembers.run(conversationId1, userId2, now)
-    
-            // Act
-            // user1 leaves conversationId1
-            const response = await messageRoutes.handle(
-                new Request(`http://localhost:3000/api/directMessage/unsubscribe/${conversationId1}?user_id=${userId1}`, {
-                    method: 'PATCH',
-                })
-            )
-            const response2 = await messageRoutes.handle(
-                new Request(`http://localhost:3000/api/me/conversations?user_id=${userId1}`, {
-                    method: 'GET',
-                })
-            )
-            // user1 tries leaving conversation1 again
-            const response3 = await messageRoutes.handle(
-                new Request(`http://localhost:3000/api/directMessage/unsubscribe/${conversationId1}?user_id=${userId1}`, {
-                    method: 'PATCH',
-                })
-            )
-            // const responseBody = await response.json() as Conversation[]
-            const responseBody2 = await response2.json() as Conversation[]
+  //FR-16
+  //TODO: test for group name after group creation is implemented.
+  //TODO: test for unread flag per conversation from FR-18 (feeds US-05)
 
-            // Assert
-            expect(response.status).toBe(200)   // user left convo
-            expect(response2.status).toBe(200)
-            expect(response3.status).toBe(404)  // checking that convo that user left is not found
-            expect(responseBody2).toHaveLength(1)
-            expect(responseBody2.map(c => c.id)).not.toContain(conversationId1)
-            expect(responseBody2.map(c => c.id)).toContain(conversationId2)
-        })
+  test("FR-16b: getting the ordered messages in a conversation", async () => {
+    // Arrange
+    const conversationId = "test-conversation-14";
+    const userId = "user_3";
+    const message1 = "First message of 2";
+    const message2 = "Second message of 2";
+    addTestConversation(conversationId, userId);
 
-        test('test that user cannot send message after leaving convo getting 403', async () => {
-            //Arrange
-            const conversationId1 = 'test-conversation-17'
-            const userId1 = 'user_10'
-            const userId2 = 'user_11'
-            addTestConversation(conversationId1, userId1)
-            const now = new Date().toISOString()
-            const insertConversationMembers = db.prepare(
-            'INSERT OR IGNORE INTO conversation_members (conversation_id, user_id, joined_at) VALUES (?, ?, ?)'
-            )
-            insertConversationMembers.run(conversationId1, userId2, now)
-            const message1 = "I shouldn't be allowed to send to this convo"
+    // Act
+    const response1 = await messageRoutes.handle(
+      new Request(
+        "http://localhost:3000/api/directMessage/test-conversation-14?user_id=user_3",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: `${message1}` }),
+        },
+      ),
+    );
+    const response2 = await messageRoutes.handle(
+      new Request(
+        "http://localhost:3000/api/directMessage/test-conversation-14?user_id=user_3",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: `${message2}` }),
+        },
+      ),
+    );
+    const response3 = await messageRoutes.handle(
+      new Request(
+        `http://localhost:3000/api/me/conversations/${conversationId}?user_id=${userId}`,
+        {
+          method: "GET",
+        },
+      ),
+    );
+    const responseBody = (await response3.json()) as Message[];
+    // console.log('Response status:', response3.status)
+    // console.log('Response body:', await response3.text())
 
-            //Act
-            const response = await messageRoutes.handle(
-                new Request(`http://localhost:3000/api/directMessage/unsubscribe/${conversationId1}?user_id=${userId1}`, {
-                    method: 'PATCH',
-                })
-            )
-            const response2 = await messageRoutes.handle(
-                new Request(`http://localhost:3000/api/directMessage/${conversationId1}?user_id=${userId1}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message: `${message1}` }),
-                })
-            )
-            const responseBody = await response2.json() as {error: string}
+    // Assert
+    expect(responseBody.at(0)?.body).toBe(message2);
+  });
+});
 
-            //Act
-            expect(response.status).toBe(200)
-            expect(response2.status).toBe(403)
-            expect(responseBody.error).toBe('User is not an active member of this conversation')
-        })
+describe("[FR-15] Leave conversations", () => {
+  //FR-15 Leave conversation via PATCH /api/directMessage/unsubscribe/:conversation_id
+  //TODO: test for conversation_members.left_at to check that the conversation disappears from their GET results
+  test("test for conversation_members.left_at to check that the conversation disappears from their GET results", async () => {
+    // Arrange
+    const conversationId1 = "test-conversation-14";
+    const conversationId2 = "test-conversation-15";
+    const userId1 = "user_10";
+    const userId2 = "user_11";
+    addTestConversation(conversationId1, userId1);
+    addTestConversation(conversationId2, userId1);
+    const now = new Date().toISOString();
+    const insertConversationMembers = db.prepare(
+      "INSERT OR IGNORE INTO conversation_members (conversation_id, user_id, joined_at) VALUES (?, ?, ?)",
+    );
+    insertConversationMembers.run(conversationId1, userId2, now);
 
-        test('test that row is NOT deleted after user leaves conversation', async () => {
-            // Arrange
-            const conversationId = 'test-FR17-convo-1'
-            const userId = 'user_12'
-            addTestConversation(conversationId, userId)
+    // Act
+    // user1 leaves conversationId1
+    const response = await messageRoutes.handle(
+      new Request(
+        `http://localhost:3000/api/directMessage/unsubscribe/${conversationId1}?user_id=${userId1}`,
+        {
+          method: "PATCH",
+        },
+      ),
+    );
+    const response2 = await messageRoutes.handle(
+      new Request(
+        `http://localhost:3000/api/me/conversations?user_id=${userId1}`,
+        {
+          method: "GET",
+        },
+      ),
+    );
+    // user1 tries leaving conversation1 again
+    const response3 = await messageRoutes.handle(
+      new Request(
+        `http://localhost:3000/api/directMessage/unsubscribe/${conversationId1}?user_id=${userId1}`,
+        {
+          method: "PATCH",
+        },
+      ),
+    );
+    // const responseBody = await response.json() as Conversation[]
+    const responseBody2 = (await response2.json()) as Conversation[];
 
-            // Act
-            const response = await messageRoutes.handle(
-                new Request(`http://localhostL:3000/api/directMessage/unsubscribe/${conversationId}?user_id=${userId}`, {
-                    method: 'PATCH',
-                })
-            )
-            //const conversation = retrieveConversation(userId) as Conversation[]
-            const membership = db.prepare(
-                `SELECT *
+    // Assert
+    expect(response.status).toBe(200); // user left convo
+    expect(response2.status).toBe(200);
+    expect(response3.status).toBe(404); // checking that convo that user left is not found
+    expect(responseBody2).toHaveLength(1);
+    expect(responseBody2.map((c) => c.id)).not.toContain(conversationId1);
+    expect(responseBody2.map((c) => c.id)).toContain(conversationId2);
+  });
+
+  test("test that user cannot send message after leaving convo getting 403", async () => {
+    //Arrange
+    const conversationId1 = "test-conversation-17";
+    const userId1 = "user_10";
+    const userId2 = "user_11";
+    addTestConversation(conversationId1, userId1);
+    const now = new Date().toISOString();
+    const insertConversationMembers = db.prepare(
+      "INSERT OR IGNORE INTO conversation_members (conversation_id, user_id, joined_at) VALUES (?, ?, ?)",
+    );
+    insertConversationMembers.run(conversationId1, userId2, now);
+    const message1 = "I shouldn't be allowed to send to this convo";
+
+    //Act
+    const response = await messageRoutes.handle(
+      new Request(
+        `http://localhost:3000/api/directMessage/unsubscribe/${conversationId1}?user_id=${userId1}`,
+        {
+          method: "PATCH",
+        },
+      ),
+    );
+    const response2 = await messageRoutes.handle(
+      new Request(
+        `http://localhost:3000/api/directMessage/${conversationId1}?user_id=${userId1}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: `${message1}` }),
+        },
+      ),
+    );
+    const responseBody = (await response2.json()) as { error: string };
+
+    //Act
+    expect(response.status).toBe(200);
+    expect(response2.status).toBe(403);
+    expect(responseBody.error).toBe(
+      "User is not an active member of this conversation",
+    );
+  });
+
+  test("test that row is NOT deleted after user leaves conversation", async () => {
+    // Arrange
+    const conversationId = "test-FR17-convo-1";
+    const userId = "user_12";
+    addTestConversation(conversationId, userId);
+
+    // Act
+    const response = await messageRoutes.handle(
+      new Request(
+        `http://localhostL:3000/api/directMessage/unsubscribe/${conversationId}?user_id=${userId}`,
+        {
+          method: "PATCH",
+        },
+      ),
+    );
+    //const conversation = retrieveConversation(userId) as Conversation[]
+    const membership = db
+      .prepare(
+        `SELECT *
                 FROM conversation_members
                 WHERE conversation_id = ?
-                AND user_id = ?`
-            ).get(conversationId, userId) as { 
-                conversation_id: string
-                user_id: string
-                left_at: string | null
-            } | null
+                AND user_id = ?`,
+      )
+      .get(conversationId, userId) as {
+      conversation_id: string;
+      user_id: string;
+      left_at: string | null;
+    } | null;
 
-            // Assert
-            expect(response.status).toBe(200)
-            expect(membership?.conversation_id).toEqual(conversationId)
-            expect(membership?.left_at).not.toBe(null)
-        })
+    // Assert
+    expect(response.status).toBe(200);
+    expect(membership?.conversation_id).toEqual(conversationId);
+    expect(membership?.left_at).not.toBe(null);
+  });
 
-        test('test that trying to leave twice returns 404', async () => {
-            // Arrange
-            const conversationId = 'test-FR17-convo-2'
-            const userId = 'user_12'
-            addTestConversation(conversationId, userId)
+  test("test that trying to leave twice returns 404", async () => {
+    // Arrange
+    const conversationId = "test-FR17-convo-2";
+    const userId = "user_12";
+    addTestConversation(conversationId, userId);
 
-            // Act
-            const response = await messageRoutes.handle(
-                new Request(`http://localhostL:3000/api/directMessage/unsubscribe/${conversationId}?user_id=${userId}`, {
-                    method: 'PATCH',
-                })
-            )
-            const response2 = await messageRoutes.handle(
-                new Request(`http://localhostL:3000/api/directMessage/unsubscribe/${conversationId}?user_id=${userId}`, {
-                    method: 'PATCH',
-                })
-            )
-            expect(response.status).toBe(200)
-            expect(response2.status).toBe(404)
-        })
+    // Act
+    const response = await messageRoutes.handle(
+      new Request(
+        `http://localhostL:3000/api/directMessage/unsubscribe/${conversationId}?user_id=${userId}`,
+        {
+          method: "PATCH",
+        },
+      ),
+    );
+    const response2 = await messageRoutes.handle(
+      new Request(
+        `http://localhostL:3000/api/directMessage/unsubscribe/${conversationId}?user_id=${userId}`,
+        {
+          method: "PATCH",
+        },
+      ),
+    );
+    expect(response.status).toBe(200);
+    expect(response2.status).toBe(404);
+  });
 
-        //waiting for a propper get message route
-        // test('test that user cannot get message after leaving convo getting 403', async () => {
-        //     //Arrange
-        //     const conversationId1 = 'test-conversation-18'
-        //     const userId1 = 'user_10'
-        //     const userId2 = 'user_11'
-        //     addTestConversation(conversationId1, userId1)
-        //     const now = new Date().toISOString()
-        //     const insertConversationMembers = db.prepare(
-        //     'INSERT OR IGNORE INTO conversation_members (conversation_id, user_id, joined_at) VALUES (?, ?, ?)'
-        //     )
-        //     insertConversationMembers.run(conversationId1, userId2, now)
-        //     const message1 = "I shouldn't be allowed to send to this convo"
+  //waiting for a propper get message route
+  // test('test that user cannot get message after leaving convo getting 403', async () => {
+  //     //Arrange
+  //     const conversationId1 = 'test-conversation-18'
+  //     const userId1 = 'user_10'
+  //     const userId2 = 'user_11'
+  //     addTestConversation(conversationId1, userId1)
+  //     const now = new Date().toISOString()
+  //     const insertConversationMembers = db.prepare(
+  //     'INSERT OR IGNORE INTO conversation_members (conversation_id, user_id, joined_at) VALUES (?, ?, ?)'
+  //     )
+  //     insertConversationMembers.run(conversationId1, userId2, now)
+  //     const message1 = "I shouldn't be allowed to send to this convo"
 
-        //     //Act
-        //     const response = await messageRoutes.handle(
-        //         new Request(`http://localhost:3000/api/directMessage/unsubscribe/${conversationId1}?user_id=${userId1}`, {
-        //             method: 'PATCH',
-        //         })
-        //     )
-        //     // change this to get message route when availablle
-        //     const response2 = await messageRoutes.handle(
-        //         new Request(`http://localhost:3000/api/directMessage/${conversationId1}?user_id=${userId1}`, {
-        //             method: 'POST',
-        //         headers: { 'Content-Type': 'application/json' },
-        //         body: JSON.stringify({ message: `${message1}` }),
-        //         })
-        //     )
-        //     const responseBody = await response2.json() as {error: string}
+  //     //Act
+  //     const response = await messageRoutes.handle(
+  //         new Request(`http://localhost:3000/api/directMessage/unsubscribe/${conversationId1}?user_id=${userId1}`, {
+  //             method: 'PATCH',
+  //         })
+  //     )
+  //     // change this to get message route when availablle
+  //     const response2 = await messageRoutes.handle(
+  //         new Request(`http://localhost:3000/api/directMessage/${conversationId1}?user_id=${userId1}`, {
+  //             method: 'POST',
+  //         headers: { 'Content-Type': 'application/json' },
+  //         body: JSON.stringify({ message: `${message1}` }),
+  //         })
+  //     )
+  //     const responseBody = await response2.json() as {error: string}
 
         //     //Act
         //     expect(response.status).toBe(200)
