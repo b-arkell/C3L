@@ -38,6 +38,64 @@ export function findConversationById(conversationId: string): unknown {
     return stmt.get(conversationId)
 }
 
+export function findConversationByDirectKey(directKey: string): Conversation | null {
+    const stmt = db.prepare(
+        'SELECT * FROM conversations WHERE direct_key = ?',
+    )
+
+    return stmt.get(directKey) as Conversation | null
+}
+
+export function insertConversation(
+    id: string,
+    name: string | null,
+    directKey: string | null,
+    createdBy: string,
+    createdAt: string,
+) {
+
+    const stmt = db.prepare(`
+        INSERT INTO conversations (
+            id,
+            name,
+            direct_key,
+            created_by,
+            created_at
+        )
+        VALUES (?, ?, ?, ?, ?)
+    `)
+
+    stmt.run(
+        id,
+        name,
+        directKey,
+        createdBy,
+        createdAt,
+    )
+}
+
+export function insertConversationMember(
+    conversationId: string,
+    userId: string,
+    joinedAt: string,
+) {
+
+    const stmt = db.prepare(`
+        INSERT INTO conversation_members (
+            conversation_id,
+            user_id,
+            joined_at
+        )
+        VALUES (?, ?, ?)
+    `)
+
+    stmt.run(
+        conversationId,
+        userId,
+        joinedAt,
+    )
+}
+
 // Get a conversation member by conversation and user - returns record or null
 export function findMembership(conversationId: string, userId: string): unknown {
     const selectUsersStmt = db.prepare(

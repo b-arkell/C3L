@@ -1,7 +1,7 @@
 import { Elysia, t } from 'elysia'
 import { auth } from '../auth'
 import { page } from '../views'
-import { getAllMessagesInConvo, leaveConversation, listConversations, markAsRead, sendMessage } from './service'
+import { getAllMessagesInConvo, leaveConversation, listConversations, markAsRead, sendMessage, createConversation } from './service'
 //import { set } from 'better-auth'
 import { conversationExists, isActiveMember } from './validation'
 //import { updateLastReadAt } from './repository'
@@ -13,6 +13,53 @@ export const messageRoutes = new Elysia()
   .get('/messages', () => page('Messages', '<h1>Messages</h1><p>Coming soon.</p>'))
 
 
+  .post('/api/directMessageCreation', ({ body, user, set }) => {
+      if (
+        body.recipients_emails.length > 1 &&
+        !body.group_name
+      ) {
+
+        set.status = 400
+
+        return {
+          error:
+            'group_name is required when creating a group conversation',
+        }
+      }
+
+      const result = createConversation(
+        user.user_id,
+        body.group_name,
+        body.recipients_emails,
+      )
+
+      set.status =
+        result.status === 'created'
+          ? 201
+          : 200
+
+      return {
+        conversation_id:
+          result.conversationId,
+      }
+    },
+    {
+      body: t.Object({
+        group_name: t.Optional(
+          t.String({
+            minLength: 1,
+          }),
+        ),
+
+        recipients_emails: t.Array(
+          t.String(),
+          {
+            minItems: 1,
+          },
+        ),
+      }),
+    },
+  )
   .post('/api/directMessage/:conversationId', ({ params, body, user, set }) => {
     
     const savedMessage = sendMessage(params.conversationId, user.user_id, body.message)
