@@ -1,6 +1,6 @@
 // Sam - Service functions for messaging routes
 
-import { Conversation, insertMessage, retrieveAllMessages, retrieveConversation, retrieveLastMessage, updateLeftAt, type Message } from "./repository"
+import { type Conversation, insertMessage, retrieveAllMessages, retrieveConversation, retrieveLastMessage, retrieveLastReadAt, updateLastReadAt, updateLeftAt, type Message } from './repository'
 import { conversationExists, isActiveMember } from "./validation";
 
 export type SendMessageResult =
@@ -41,6 +41,54 @@ export function getLastMessage(conversationId: string): Message {
 
 export function getAllMessagesInConvo(conversationId: string): Message[] {
     return retrieveAllMessages(conversationId)
+}
+
+// Mark message as read for specific user/conversation
+export function markAsRead(conversationId: string, userId: string): boolean {
+    if (!conversationExists(conversationId) || !isActiveMember(conversationId, userId)) {
+        return false
+    }
+    updateLastReadAt(conversationId, userId)
+    return true
+}
+
+// get the first unread message 
+export function getFirstUnread(conversationId: string, userId: string): Message|null {
+    if (!conversationExists(conversationId) || !isActiveMember(conversationId, userId)) {
+        return null
+    }
+    const lastRead = retrieveLastReadAt(conversationId, userId)
+    if (lastRead === null)
+        return null
+
+    const messages = getAllMessagesInConvo(conversationId)    
+    const chronologicalMessages = [...messages].reverse()
+    if (lastRead.last_read_at === null)
+        return chronologicalMessages[0] ?? null
+    
+    const timeStamp = lastRead.last_read_at
+
+    return chronologicalMessages.find(
+        message => message.created_at > timeStamp
+    ) ?? null
+}
+
+// Get all the unread messages of a conversation for a specific user
+export function getAllUnread(conversationId: string, userId: string): Message[]|null {
+    if (!conversationExists(conversationId) || !isActiveMember(conversationId, userId)) {
+        return null
+    }
+    const lastRead = retrieveLastReadAt(conversationId, userId)
+    if (lastRead === null)
+        return null
+    const messages = getAllMessagesInConvo(conversationId)
+    if (lastRead.last_read_at === null)
+        return messages
+    
+    const timeStamp = lastRead.last_read_at
+
+    const unreadMessages = messages.filter((message) => message.created_at > timeStamp)
+    return unreadMessages
 }
 
 // leave a conversation

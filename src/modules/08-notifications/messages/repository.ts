@@ -7,6 +7,7 @@ export interface Conversation {
     direct_key: string | null
     created_by: string
     created_at: string
+    has_unread: number
 }
 
 export interface Message {
@@ -15,6 +16,18 @@ export interface Message {
     sender_id: string
     body: string
     created_at: string
+}
+
+export interface ConversationMembers {
+    conversation_id: string
+    user_id: string
+    joined_at: string
+    last_read_at: string | null
+    left_at: string | null
+}
+
+export interface LastReadAtRow {
+    last_read_at: string|null
 }
 
 // Get conversation if it exists - returns record or null
@@ -53,8 +66,23 @@ export function insertMessage(messageId: string, conversationId: string, userId:
 
 // get conversations
 export function retrieveConversation(userId: string): Conversation[] {
-    const getConvoStmt = db.prepare(
-        'SELECT conversations.* FROM conversations INNER JOIN conversation_members ON conversations.id = conversation_members.conversation_id WHERE conversation_members.user_id = ? AND conversation_members.left_at IS NULL'
+    const getConvoStmt = db.prepare(`
+        SELECT
+            conversations.*,
+            EXISTS (
+                SELECT 1
+                FROM messages
+                WHERE messages.conversation_id = conversations.id
+                AND (
+                    conversation_members.last_read_at IS NULL
+                    OR messages.created_at > conversation_members.last_read_at
+                )
+            ) AS has_unread
+        FROM conversations
+        INNER JOIN conversation_members
+            ON conversations.id = conversation_members.conversation_id
+        WHERE conversation_members.user_id = ?
+        AND conversation_members.left_at IS NULL`    
     ).all(userId) as Conversation[]
     return getConvoStmt
 }
@@ -70,7 +98,7 @@ export function retrieveLastMessage(conversationId: string): Message {
 // get all messages of a conversation by conversationId - descending order (most recent first)
 export function retrieveAllMessages(conversationId: string): Message[] {
     const getMessages = db.prepare(
-        'SELECT * FROM messages WHERE conversation_id = ? ORDER BY created_at DESC'
+        'SELECT * FROM messages WHERE conversation_id = ? ORDER BY created_at DESC' // LIMIT 50 //this would limit to 50 messages.
     ).all(conversationId) as Message[]
     return getMessages
 }
@@ -82,4 +110,21 @@ export function updateLeftAt(conversationId: string, userId: string) {
         'UPDATE conversation_members SET left_at = ? WHERE conversation_id = ? AND user_id = ? AND left_at IS NULL'
     )
     updateConversation.run(leftAt, conversationId, userId)
+}
+
+// get last_read_at in conversation_members
+export function retrieveLastReadAt(conversationId: string, userId: string): LastReadAtRow|null {
+    const retrieveReadAt = db.prepare(
+        'SELECT last_read_at FROM conversation_members WHERE conversation_id = ? AND user_id = ? AND left_at IS NULL'
+    ).get(conversationId, userId) as LastReadAtRow | null
+    return retrieveReadAt
+}
+
+// update last_read_at in conversation_members
+export function updateLastReadAt(conversationId: string, userId: string) {
+    const currentTime = new Date().toISOString()
+    const updateLastRead = db.prepare(
+        'UPDATE conversation_members SET last_read_at = ? WHERE conversation_id = ? AND user_id = ? AND left_at IS NULL'
+    )
+    updateLastRead.run(currentTime, conversationId, userId)
 }
