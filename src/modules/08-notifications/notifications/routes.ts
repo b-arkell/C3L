@@ -1,7 +1,5 @@
 import { Elysia, t } from "elysia";
-import { escapeHtml } from "../../../core/pages";
 import { auth } from "../auth";
-import { page } from "../views";
 import { EVENT_TYPES } from "./eventTypes";
 import { checkEventRules } from "./eventRules";
 import { unmuteCategories } from "./subscribe";
@@ -15,6 +13,7 @@ import { removeMutedUsers } from "./muteFilter";
 import { getNotifications } from "./getNotifications";
 import { markNotificationRead } from "./markNotificationRead";
 import { bellWidget } from "./bellWidget";
+import { inboxPage } from "./inboxPage";
 
 export const notificationRoutes = new Elysia()
   .get("/assets/logo.png", () =>
@@ -65,13 +64,7 @@ export const notificationRoutes = new Elysia()
   // Everything above is public: the logo, and the API other modules call (no signed-in user).
   // Everything below needs a signed-in user (Module 1 login); see ../auth.ts.
   .use(auth)
-  .get("/inbox", ({ user }) =>
-    page(
-      "Notifications",
-      `<h1>Notifications</h1>
-      <p>Signed in as ${escapeHtml(user.user_id)}. Coming soon.</p>`,
-    ),
-  )
+  .get("/inbox", ({ user }) => inboxPage(user.user_id))
   .get("/preferences", ({ user }) => preferencesPage(user.user_id))
   .get("/bellWidget", ({ user }) => bellWidget(user.user_id),)
   .post(

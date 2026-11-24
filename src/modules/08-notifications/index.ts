@@ -4,6 +4,7 @@ import { messageRoutes } from './messages/routes'
 import { notificationRoutes } from './notifications/routes'
 import { page } from './views'
 import { bellWidget } from './notifications/bellWidget'
+import { demoRoutes } from './demo/routes'
 
 const base = moduleBase(import.meta.dir)
 
@@ -20,9 +21,11 @@ export default defineModule({
           .btns a { padding: 8px 14px; border: 1px solid #888; border-radius: 4px;
                     text-decoration: none; color: inherit; }
           .btns a:hover { background: #eee; }
+          .demo-btn { display: inline-block; padding: 10px 22px; border-radius: 4px; background: #bd8f4d;
+                      color: #262626; font-weight: 600; text-decoration: none; }
         </style>
         <h1>Notifications & Messaging</h1>
-
+            <p><a class="demo-btn" href="${base}/demo">Start demo</a></p>
         <h2>Pages</h2>
         <div class="btns">
           <a href="${base}/inbox">Notification inbox</a>
@@ -104,5 +107,6 @@ export default defineModule({
       `,
     )
     .use(notificationRoutes)
-    .use(messageRoutes),
+    .use(messageRoutes)
+    .use(demoRoutes), // TODO - DEMO ONLY: remove later along with the demo/ folder
 })
